@@ -8,15 +8,31 @@ function ac() {
     if (!AC) return null;
     ctx = new AC();
   }
-  if (ctx.state === 'suspended') ctx.resume();
+  // « suspended » au départ, « interrupted » sur iOS après un appel ou un passage en arrière-plan.
+  if (ctx.state !== 'running') ctx.resume().catch(() => {});
   return ctx;
 }
-// iOS n'autorise le son qu'après un geste : on « réveille » le contexte au premier toucher.
-window.addEventListener('pointerdown', () => { if (store.sound) ac(); }, { once: true });
+
+// Déverrouillage iOS : Safari ne laisse démarrer l'audio que pendant un geste de l'utilisateur.
+// À chaque geste, tant que le contexte ne tourne pas, on le relance et on joue un tampon muet
+// (pas seulement au premier toucher : iOS peut le re-suspendre à tout moment).
+function unlock() {
+  if (!store.sound) return;
+  const a = ac();
+  if (!a || a.state === 'running') return;
+  try {
+    const src = a.createBufferSource();
+    src.buffer = a.createBuffer(1, 1, 22050);
+    src.connect(a.destination);
+    src.start(0);
+  } catch { /* ignoré */ }
+}
+['pointerdown', 'touchend', 'click', 'keydown'].forEach((ev) =>
+  window.addEventListener(ev, unlock, { capture: true, passive: true }));
 
 function tone(freq, { dur = 0.08, type = 'sine', gain = 0.12, at = 0, slide = 0 } = {}) {
   if (!store.sound) return;
-  const a = ac(); if (!a) return;
+  const a = ac(); if (!a || a.state !== 'running') return; // pas de rafale différée au déverrouillage
   const t = a.currentTime + at;
   const o = a.createOscillator(), g = a.createGain();
   o.type = type;
