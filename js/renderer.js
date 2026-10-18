@@ -36,6 +36,7 @@ export class BoardView {
     this.flashes = new Map();   // y -> {start, dur, color}
     this.drops = new Map();     // y -> {start, dur, dist} lignes qui retombent après effacement
     this.danger = 0;            // 0..1 teinte d'alerte sur la zone de jeu
+    this.squeeze = null;        // {rows, k} : les `rows` premières lignes sont affichées k fois moins hautes
     this.theme = readTheme();
     this.dpr = 1;
     this.cell = 0; this.ox = 0; this.oy = 0;
@@ -55,8 +56,9 @@ export class BoardView {
 
   refreshTheme() { this.theme = readTheme(); }
 
-  setBoard(board, field, { zones = [], reach = null } = {}) {
+  setBoard(board, field, { zones = [], reach = null, squeeze = null } = {}) {
     this.board = board;
+    this.squeeze = squeeze;
     this.field = field || { x0: 1, y0: 1, x1: board.w - 2, y1: board.h - 2 };
     this.zones = zones;
     this.reach = reach;
@@ -74,9 +76,11 @@ export class BoardView {
     this.canvas.style.width = W + 'px';
     this.canvas.style.height = H + 'px';
     const { w, h } = this.board;
-    this.cell = Math.floor(Math.min(W / w, H / h, 84));
+    const sq = this.squeeze;
+    const effRows = sq ? sq.rows * sq.k + (h - sq.rows) : h;
+    this.cell = Math.floor(Math.min(W / w, H / effRows, 84));
     this.ox = Math.floor((W - this.cell * w) / 2);
-    this.oy = Math.floor((H - this.cell * h) / 2);
+    this.oy = Math.floor((H - this.rowTop(h)) / 2);
     this.draw(performance.now());
   }
 
@@ -92,6 +96,20 @@ export class BoardView {
   }
   stop() { this.running = false; }
 
+  // ---------- Géométrie verticale (lignes du haut éventuellement tassées) ----------
+  rowTop(yf) {
+    const s = this.cell, sq = this.squeeze;
+    if (!sq) return yf * s;
+    return yf <= sq.rows ? yf * sq.k * s : (sq.rows * sq.k + (yf - sq.rows)) * s;
+  }
+  rowH(yf) { return this.rowTop(yf + 1) - this.rowTop(yf); }
+  rowAt(py) {
+    const s = this.cell, sq = this.squeeze;
+    if (!sq) return Math.floor(py / s);
+    const top = sq.rows * sq.k * s;
+    return py < top ? Math.floor(py / (sq.k * s)) : sq.rows + Math.floor((py - top) / s);
+  }
+
   // ---------- Saisie ----------
   inReach(x, y) {
     const r = this.reach;
@@ -103,12 +121,13 @@ export class BoardView {
   cellAt(e, strict) {
     const r = this.canvas.getBoundingClientRect();
     const px = e.clientX - r.left - this.ox, py = e.clientY - r.top - this.oy;
-    const x = Math.floor(px / this.cell), y = Math.floor(py / this.cell);
+    const x = Math.floor(px / this.cell), y = this.rowAt(py);
     if (!inBounds(this.board, x, y)) return null;
     if (strict) {
       // Tolérance aux coins : on n'entre dans une case qu'au plus près de son centre.
-      const cx = (x + 0.5) * this.cell, cy = (y + 0.5) * this.cell;
-      if (Math.abs(px - cx) > this.cell * 0.42 || Math.abs(py - cy) > this.cell * 0.42) return null;
+      const rh = this.rowH(y);
+      const cx = (x + 0.5) * this.cell, cy = this.rowTop(y) + rh / 2;
+      if (Math.abs(px - cx) > this.cell * 0.42 || Math.abs(py - cy) > rh * 0.42) return null;
     }
     return [x, y];
   }
@@ -225,15 +244,17 @@ export class BoardView {
 
   zoneRect(z) {
     const s = this.cell;
-    return [z.x0 * s, z.y0 * s, (z.x1 - z.x0 + 1) * s, (z.y1 - z.y0 + 1) * s];
+    const top = this.rowTop(z.y0);
+    return [z.x0 * s, top, (z.x1 - z.x0 + 1) * s, this.rowTop(z.y1 + 1) - top];
   }
 
-  tile(color, px, py, sx = 1, sy = 1, alpha = 1) {
+  tile(color, px, py, sx = 1, sy = 1, alpha = 1, rh = this.cell) {
     const c = this.ctx, s = this.cell, T = this.theme;
-    const gap = Math.max(2, s * 0.08), rad = s * 0.18;
-    const tw = (s - 2 * gap) * sx, th = (s - 2 * gap) * sy;
+    const gx = Math.max(2, s * 0.08), gy = Math.max(1.5, rh * 0.08);
+    const rad = Math.min(s, rh) * 0.18;
+    const tw = (s - 2 * gx) * sx, th = (rh - 2 * gy) * sy;
     c.globalAlpha = alpha;
-    this.rr(px + (s - tw) / 2, py + (s - th) / 2, tw, th, rad * Math.min(sx, 1));
+    this.rr(px + (s - tw) / 2, py + (rh - th) / 2, tw, th, rad * Math.min(sx, 1));
     c.fillStyle = color === 'B' ? T.dark : T.light;
     c.fill();
     if (color === 'W') { c.lineWidth = 1; c.strokeStyle = T.lightEdge; c.stroke(); }
@@ -277,18 +298,19 @@ export class BoardView {
       const drop = this.drops.get(y);
       if (drop) {
         const t = clamp01((now - drop.start) / drop.dur);
-        dropY = -(1 - easeOut(t)) * drop.dist * s;
+        dropY = -(1 - easeOut(t)) * (this.rowTop(y) - this.rowTop(y - drop.dist));
         if (t >= 1) this.drops.delete(y);
       }
+      const rowTopY = this.rowTop(y), rh = this.rowH(y);
       for (let x = 0; x < b.w; x++) {
         const v = at(b, x, y);
-        const px = x * s, py = y * s;
+        const px = x * s, py = rowTopY;
         const inField = x >= f.x0 && x <= f.x1 && y >= f.y0 && y <= f.y1;
         if (v === FREE) {
           // Cadre traversable : un point discret signale qu'on peut y passer.
           if (!inField && this.inReach(x, y) && !this.zones.some((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1)) {
             c.fillStyle = T.dot;
-            c.beginPath(); c.arc(px + s / 2, py + s / 2, Math.max(1.5, s * 0.06), 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(px + s / 2, py + rh / 2, Math.max(1.5, s * 0.06), 0, Math.PI * 2); c.fill();
           }
           continue;
         }
@@ -311,7 +333,7 @@ export class BoardView {
           if (t >= 1) this.flips.delete(y * b.w + x);
         }
         sx = Math.max(0.04, Math.abs(sx)) * rowScale;
-        this.tile(color, px, py + dropY, sx, rowScale, rowAlpha);
+        this.tile(color, px, py + dropY, sx, rowScale, rowAlpha, rh);
       }
       if (clear && now - clear.start >= clear.dur) this.clears.delete(y);
     }
@@ -321,7 +343,7 @@ export class BoardView {
       const t = clamp01((now - fl.start) / fl.dur);
       if (t >= 1) { this.flashes.delete(y); continue; }
       c.globalAlpha = 0.35 * (1 - t);
-      this.rr(fx, y * s + gap / 2, fw, s - gap, rad);
+      this.rr(fx, this.rowTop(y) + gap / 2, fw, this.rowH(y) - gap, rad);
       c.fillStyle = fl.color === 'danger' ? T.danger : T.success;
       c.fill();
       c.globalAlpha = 1;
@@ -332,14 +354,15 @@ export class BoardView {
       const { rows, x0, yb } = this.piece;
       const n = rows.length;
       rows.forEach((row, i) => {
-        const py = (yb - (n - 1 - i)) * s;
-        row.forEach((col, j) => this.tile(col, (x0 + j) * s, py));
+        const yf = yb - (n - 1 - i);
+        const py = this.rowTop(yf), rh = this.rowH(yf);
+        row.forEach((col, j) => this.tile(col, (x0 + j) * s, py, 1, 1, 1, rh));
       });
     }
 
     // Ligne limite + jauge d'arrivée du prochain bloc.
     if (this.limit) {
-      const ly = this.limit.y * s - s * 0.3;
+      const ly = this.rowTop(this.limit.y) - s * 0.3;
       const lx = fx - s * 0.08, lw = fw + s * 0.16, lh = Math.max(5, s * 0.24);
       this.rr(lx, ly, lw, lh, lh / 2);
       c.fillStyle = T.danger; c.fill();
@@ -357,7 +380,7 @@ export class BoardView {
 
   drawLine(path, color, alpha, now, dashed) {
     const c = this.ctx, s = this.cell;
-    const pts = path.map(([x, y]) => [x * s + s / 2, y * s + s / 2]);
+    const pts = path.map(([x, y]) => [x * s + s / 2, this.rowTop(y) + this.rowH(y) / 2]);
     c.save();
     c.globalAlpha = alpha;
     c.strokeStyle = color; c.fillStyle = color;
@@ -376,7 +399,8 @@ export class BoardView {
       c.globalAlpha = 1;
       c.lineWidth = Math.max(2, s * 0.07);
       const [x0, y0] = path[0];
-      this.rr(x0 * s + s * 0.04, y0 * s + s * 0.04, s * 0.92, s * 0.92, s * 0.22);
+      const rh0 = this.rowH(y0);
+      this.rr(x0 * s + s * 0.04, this.rowTop(y0) + rh0 * 0.04, s * 0.92, rh0 * 0.92, s * 0.22);
       c.stroke();
     }
     c.restore();

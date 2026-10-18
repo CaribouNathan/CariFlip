@@ -273,3 +273,10 @@ svg { width: 1em; height: 1em; flex: none; }
 .bonus-sub { font-size: 16px; color: var(--accent); }
 .bonus-sub:empty { display: none; }
 .sheet-badge.grade { font-size: 56px; }
+
+/* v1.1.1 — plateau du Challenge le plus grand possible sur téléphone */
+#challenge .navbar { min-height: 44px; padding-block: 0; }
+#challenge .stage { margin: 2px 2px 0; }
+#challenge .bottombar { padding-block: 4px 6px; }
+#challenge .hud-score { font-size: 24px; }
+#game .stage { margin: 4px 2px; }

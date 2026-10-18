@@ -6,7 +6,7 @@ import { randomPiece, PIECE_W } from './pieces.js';
 import { sfx, haptic } from './audio.js';
 
 export const COLS = PIECE_W;          // 8 colonnes de tuiles
-export const SPAWN = 3;               // lignes au-dessus de la limite (entrée des blocs)
+export const SPAWN = 1;               // ligne au-dessus de la limite (les blocs entrent par le haut)
 export const RESERVE = 7;             // réserve visible mais hors d'atteinte
 export const PLAY = 10;               // zone jouable
 const W = COLS + 2;
@@ -72,7 +72,8 @@ export class ChallengeMode {
     v.hintPath = null;
     v.piece = null;
     v.limit = { y: SPAWN, gauge: 0 };
-    v.setBoard(this.build(), this.field, { zones: this.zones, reach: this.reach });
+    // La réserve (hors d'atteinte) est affichée tassée de moitié : la zone jouable gagne en taille.
+    v.setBoard(this.build(), this.field, { zones: this.zones, reach: this.reach, squeeze: { rows: PLAY_TOP, k: 0.5 } });
     v.enabled = false;
     this.hud();
     this.last = performance.now();
