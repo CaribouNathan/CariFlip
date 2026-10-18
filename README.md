@@ -2,7 +2,7 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.1.1**
+**Version 1.2.0**
 
 ## Règles
 
@@ -12,10 +12,10 @@ Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA ins
 - Le cadre de points autour de la grille se traverse sans rien inverser. Les cases creuses sont infranchissables.
 
 **Puzzle** : 200 niveaux en 8 chapitres, à résoudre en un seul trait. 3 indices progressifs par niveau, étoile si résolu sans indice.
-**Challenge** (modèle : le mode Challenge de Polarium) : des blocs de lignes (30 motifs, miroir et inversion aléatoires) tombent du haut et s'empilent dans un puits de 8 colonnes. Seules les 10 lignes du bas sont à portée du doigt, les 7 lignes au-dessus forment une réserve visible. Chaque ligne effacée fait retomber la pile. Partie perdue quand la pile franchit la ligne rouge, dont la jauge jaune annonce le prochain bloc.
+**Challenge** (modèle : le mode Challenge de Polarium) : des blocs de lignes (30 motifs tous symétriques gauche-droite, couleurs inversées au hasard) tombent du haut et s'empilent dans un puits de 8 colonnes. Seules les 10 lignes du bas sont à portée du doigt, les 7 lignes au-dessus forment une réserve visible. Chaque ligne effacée fait retomber la pile. Partie perdue quand la pile franchit la ligne rouge, dont la jauge jaune annonce le prochain bloc.
 
 - Points d'un trait : 100 / 300 / 600 / 1 000… selon le nombre de lignes, × chaîne (traits gagnants consécutifs) × niveau. Plateau vide : +1 000 × niveau.
-- Niveau +1 toutes les 10 lignes : blocs plus fréquents, plus rapides, plus grands, avec un peu de bruit dès le niveau 4.
+- Niveau +1 toutes les 10 lignes : blocs plus fréquents, plus rapides, plus grands, avec un peu de bruit dès le niveau 4 (toujours par paire de cases miroir, la symétrie est conservée).
 - « Faire tomber » : le bloc en cours tombe d'un coup (ou le suivant arrive) contre quelques points.
 - Top 3 avec note en lettre (E- à S).
 - **Entraînement** : pile presque vide, rythme lent, sans classement.
@@ -44,7 +44,7 @@ Après toute modification, incrémenter `CACHE` dans `sw.js` (et `VERSION` dans 
 
 Les niveaux sont générés à partir d'une graine fixe (`js/rng.js`), identiques sur tous les appareils, chacun avec une solution garantie. Modifier `GEN_VERSION` ou la courbe `TIERS` (`js/generator.js`) change tous les niveaux et décale la progression des joueurs.
 
-Vérification : `node tests/generator.test.mjs` (contrôle les 200 niveaux).
+Vérification : `node tests/generator.test.mjs` (contrôle les 200 niveaux) et `node tests/pieces.test.mjs` (symétrie des blocs du Challenge).
 
 ## Structure
 
