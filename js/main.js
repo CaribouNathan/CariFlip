@@ -4,11 +4,11 @@ import { PuzzleMode, MAX_HINTS } from './puzzle.js';
 import { ChallengeMode, MODES, gradeFor } from './challenge.js';
 import { LEVEL_COUNT, CHAPTER_SIZE, levelParams } from './generator.js';
 import { store, save, markSolved, isSolvedLevel, isUnlocked, solvedCount, highestSolved, addRecord } from './storage.js';
-import { sfx, haptic } from './audio.js';
+import { sfx, haptic, hapticsAvailable, silentOverrideAvailable, applyAudioSession, IS_IOS } from './audio.js';
 import { makeBoard, set, applyPath } from './board.js';
 import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange } from './i18n.js';
 
-export const VERSION = '1.4.2';
+export const VERSION = '1.4.3';
 const $ = (s) => document.querySelector(s);
 const fmt = (n) => fmtNum(n);
 
@@ -113,12 +113,19 @@ function bindSeg(id, value, onPick) {
 bindSeg('#seg-lang', store.lang || 'auto', (v) => setLangPref(v));
 bindSeg('#seg-theme', store.theme || 'auto', (v) => { store.theme = v; save(); applyTheme(); });
 
-const optSound = $('#opt-sound'), optHaptics = $('#opt-haptics');
+const optSound = $('#opt-sound'), optHaptics = $('#opt-haptics'), optSilent = $('#opt-silent');
 optSound.checked = store.sound;
 optHaptics.checked = store.haptics;
-optSound.addEventListener('change', () => { store.sound = optSound.checked; save(); if (store.sound) sfx.clear(1); });
+optSilent.checked = store.soundInSilent;
+const syncSilentRow = () => { $('#silent-row').hidden = !silentOverrideAvailable() || !store.sound; };
+optSound.addEventListener('change', () => { store.sound = optSound.checked; save(); applyAudioSession(); syncSilentRow(); if (store.sound) sfx.clear(1); });
+optSilent.addEventListener('change', () => { store.soundInSilent = optSilent.checked; save(); applyAudioSession(); sfx.clear(1); });
 optHaptics.addEventListener('change', () => { store.haptics = optHaptics.checked; save(); haptic(20); });
-if (!navigator.vibrate) $('#haptics-row').hidden = true;
+syncSilentRow();
+if (!hapticsAvailable()) $('#haptics-row').hidden = true;
+// iPhone installé sur l'écran d'accueil : iOS 26 floute une bande sous la barre d'état ;
+// on décale le contenu pour que ce flou ne tombe que sur le fond.
+if (IS_IOS && (matchMedia('(display-mode: standalone)').matches || navigator.standalone)) document.documentElement.classList.add('ios-standalone');
 
 // ---------- Niveaux ----------
 let chapter = Math.floor((Math.max(1, store.lastLevel) - 1) / CHAPTER_SIZE);

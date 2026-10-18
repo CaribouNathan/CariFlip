@@ -97,6 +97,8 @@ const STR = {
     'set.dark': 'Sombre',
     'set.sound': 'Sons',
     'set.haptics': 'Vibrations',
+    'set.silent': 'Sons en mode silencieux',
+    'set.silentSub': 'Met en pause la musique des autres apps quand le jeu joue un son',
     'set.note': 'Auto suit la langue et l’apparence de l’appareil.',
   },
 
@@ -191,6 +193,8 @@ const STR = {
     'set.dark': 'Dark',
     'set.sound': 'Sound',
     'set.haptics': 'Vibration',
+    'set.silent': 'Sound in silent mode',
+    'set.silentSub': 'Pauses other apps’ audio when the game plays a sound',
     'set.note': 'Auto follows your device’s language and appearance.',
   },
 };

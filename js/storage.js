@@ -1,6 +1,6 @@
 // Sauvegarde locale (progression, meilleur score, réglages). Tolère un stockage indisponible.
 const KEY = 'cariflip.v1';
-const defaults = () => ({ solved: {}, best: 0, records: [], lang: 'auto', theme: 'auto', sound: true, haptics: true, tutorialSeen: false, lastLevel: 1 });
+const defaults = () => ({ solved: {}, best: 0, records: [], lang: 'auto', theme: 'auto', sound: true, soundInSilent: true, haptics: true, tutorialSeen: false, lastLevel: 1 });
 
 let state = defaults();
 try {

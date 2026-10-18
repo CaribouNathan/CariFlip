@@ -309,3 +309,6 @@ html, body { overflow: hidden; }
   border-top: 0.5px solid var(--sep); background: var(--bg);
 }
 .screen-footer .btn { width: min(100%, 360px); }
+
+/* v1.4.3 — iPhone en mode app : marge sous la barre d'état, hors de la bande floutée par iOS 26 */
+.ios-standalone .screen { padding-top: calc(env(safe-area-inset-top, 0px) + 26px); }

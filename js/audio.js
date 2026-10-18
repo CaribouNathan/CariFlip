@@ -57,7 +57,47 @@ export const sfx = {
   over() { [0, -3, -7].forEach((s, i) => tone(330 * Math.pow(2, s / 12), { dur: 0.3, type: 'sawtooth', gain: 0.05, at: i * 0.15 })); },
 };
 
-// Vibration : Android uniquement (Safari iOS ne l'expose pas).
-export function haptic(ms = 8) {
-  if (store.haptics && navigator.vibrate) { try { navigator.vibrate(ms); } catch { /* ignoré */ } }
+// ---------- Vibrations ----------
+// Android : API Vibration. iPhone : Safari n'a pas cette API, mais depuis iOS 18 basculer un
+// interrupteur natif (<input type="checkbox" switch>) produit un retour haptique ; on en clique
+// un, invisible. Sans effet sur les iOS plus anciens.
+const hasSwitch = typeof document !== 'undefined' && 'switch' in document.createElement('input');
+export const IS_IOS = typeof navigator !== 'undefined' &&
+  (/iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+export const hapticsAvailable = () => !!navigator.vibrate || (IS_IOS && hasSwitch);
+
+let iosSwitch = null;
+let lastIos = 0;
+function iosTap() {
+  const now = performance.now();
+  if (now - lastIos < 45) return; // iOS ignore des taps trop rapprochés
+  lastIos = now;
+  if (!iosSwitch) {
+    iosSwitch = document.createElement('label');
+    iosSwitch.setAttribute('aria-hidden', 'true');
+    iosSwitch.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('switch', '');
+    iosSwitch.appendChild(input);
+    document.body.appendChild(iosSwitch);
+  }
+  iosSwitch.click();
 }
+
+export function haptic(ms = 8) {
+  if (!store.haptics) return;
+  if (navigator.vibrate) { try { navigator.vibrate(ms); } catch { /* ignoré */ } return; }
+  if (IS_IOS && hasSwitch) iosTap();
+}
+
+// ---------- Mode silencieux (iPhone) ----------
+// Par défaut, Safari coupe les sons web quand l'iPhone est en mode silencieux (session « ambient »).
+// Avec la session « playback » (Audio Session API, iOS 16.4+), le jeu sonne quand même,
+// mais met en pause la musique des autres apps quand il joue un son.
+export const silentOverrideAvailable = () => typeof navigator !== 'undefined' && !!navigator.audioSession;
+export function applyAudioSession() {
+  if (!silentOverrideAvailable()) return;
+  try { navigator.audioSession.type = store.sound && store.soundInSilent ? 'playback' : 'ambient'; } catch { /* ignoré */ }
+}
+applyAudioSession();
