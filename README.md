@@ -2,7 +2,7 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.4.0**
+**Version 1.4.1**
 
 ## Règles
 
@@ -33,7 +33,7 @@ Double-cliquer `serve.command`, puis ouvrir http://localhost:8080. Le service wo
 
 1. Créer le dépôt `cariflip` sur le compte CaribouNathan et y pousser le contenu de ce dossier (racine du dépôt = ce dossier).
 2. Settings › Pages › Source : *Deploy from a branch*, branche `main`, dossier `/ (root)`.
-3. L'app est servie sur `https://caribounathan.github.io/CariFlip/`.
+3. L'app est servie sur `https://caribounathan.github.io/cariflip/`.
 
 Installation :
 - **iPhone / iPad** : ouvrir l'URL dans Safari › Partager › *Sur l'écran d'accueil*.

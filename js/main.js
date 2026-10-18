@@ -8,7 +8,7 @@ import { sfx, haptic } from './audio.js';
 import { makeBoard, set, applyPath } from './board.js';
 import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange } from './i18n.js';
 
-export const VERSION = '1.4.0';
+export const VERSION = '1.4.1';
 const $ = (s) => document.querySelector(s);
 const fmt = (n) => fmtNum(n);
 
