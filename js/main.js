@@ -7,7 +7,7 @@ import { store, save, markSolved, isSolvedLevel, isUnlocked, solvedCount, highes
 import { sfx, haptic } from './audio.js';
 import { makeBoard, set, applyPath } from './board.js';
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 const $ = (s) => document.querySelector(s);
 const fmt = (n) => n.toLocaleString('fr-FR');
 const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;

@@ -3,6 +3,7 @@
 // ce qui ramène à portée les lignes de la réserve. Partie perdue si la pile dépasse la limite.
 import { makeBoard, set, isTile, at, BLACK, WHITE, FREE } from './board.js';
 import { randomPiece, PIECE_W } from './pieces.js';
+import { buildStartStack } from './start.js';
 import { sfx, haptic } from './audio.js';
 
 export const COLS = PIECE_W;          // 8 colonnes de tuiles
@@ -55,12 +56,10 @@ export class ChallengeMode {
     this.modeKey = modeKey;
     this.mode = MODES[modeKey];
     this.level = 1;
-    this.stack = [];
-    while (this.stack.length < this.mode.startRows) {
-      const p = randomPiece(1);
-      for (let r = p.length - 1; r >= 0; r--) this.stack.push(p[r]);
-    }
-    this.stack.length = this.mode.startRows;
+    // Grille de départ garantie : un trait unique existe qui efface toutes les lignes d'un coup.
+    const start = buildStartStack(this.mode.startRows);
+    this.stack = start.stack;
+    this.startSolution = start.solution; // coordonnées locales (y 0 = ligne du haut de la grille)
     this.score = 0; this.lines = 0; this.chain = 0; this.maxChain = 0;
     this.piece = null; this.timer = this.mode.interval(1) * 0.5;
     this.paused = false; this.over = false; this.busy = false;
@@ -173,7 +172,8 @@ export class ChallengeMode {
       this.stack[i][j] = this.stack[i][j] === BLACK ? WHITE : BLACK;
     }
     this.refresh();
-    const dur = this.view.animateFlips(tiles, this.board, { stagger: 12, dur: 160 });
+    // Les très longs traits gardent une animation courte (≈ 0,6 s au total).
+    const dur = this.view.animateFlips(tiles, this.board, { stagger: Math.min(12, 450 / tiles.length), dur: 160 });
     sfx.flip();
     setTimeout(() => this.resolve(), dur + 30);
   }
