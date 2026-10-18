@@ -2,6 +2,7 @@
 import { generateLevel } from './generator.js';
 import { applyPath, isSolved, rowState, cloneBoard, isTile, at, dirtyRowCount } from './board.js';
 import { sfx, haptic } from './audio.js';
+import { t } from './i18n.js';
 
 export const MAX_HINTS = 3;
 
@@ -31,7 +32,7 @@ export class PuzzleMode {
     v.setBoard(this.board);
     v.enabled = true;
     this.ui.onDirty(dirtyRowCount(this.board));
-    this.ui.onStatus('Un seul trait : chaque ligne doit finir d’une seule couleur.');
+    this.ui.onStatus(t('game.intro'));
   }
 
   hint() {
@@ -40,7 +41,7 @@ export class PuzzleMode {
     const sol = this.level.solution;
     const len = this.hints === 1 ? 1 : this.hints === 2 ? Math.max(2, Math.ceil(sol.length / 3)) : sol.length;
     this.view.hintPath = sol.slice(0, len);
-    const msg = ['Le trait commence ici.', 'Voici le début du trait.', 'Voici le trait complet.'][this.hints - 1];
+    const msg = t(`game.hint${this.hints}`);
     this.ui.onStatus(msg, 'hint');
     return this.hints;
   }
@@ -71,7 +72,7 @@ export class PuzzleMode {
       v.flashRows(bad, 'danger', 750);
       sfx.fail(); haptic(60);
       this.ui.onShake();
-      this.ui.onStatus(bad.length === 1 ? 'Encore 1 ligne mixte. On recommence.' : `Encore ${bad.length} lignes mixtes. On recommence.`, 'fail');
+      this.ui.onStatus(t('game.fail', { n: bad.length }), 'fail');
       this.later(() => {
         v.board = this.board;
         const d = v.animateFlips([...path].reverse(), this.board, { stagger: 10, dur: 180 });

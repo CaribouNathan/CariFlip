@@ -5,6 +5,7 @@ import { makeBoard, set, isTile, at, BLACK, WHITE, FREE } from './board.js';
 import { randomPiece, PIECE_W } from './pieces.js';
 import { buildStartStack } from './start.js';
 import { sfx, haptic } from './audio.js';
+import { t } from './i18n.js';
 
 export const COLS = PIECE_W;          // 8 colonnes de tuiles
 export const SPAWN = 1;               // ligne au-dessus de la limite (les blocs entrent par le haut)
@@ -103,11 +104,11 @@ export class ChallengeMode {
     if (this.countdown > 0) {
       this.countdown -= dt;
       const c = this.countdown;
-      const label = c > 2.8 ? '3' : c > 1.8 ? '2' : c > 0.8 ? '1' : c > 0 ? 'C’est parti' : null;
+      const label = c > 2.8 ? '3' : c > 1.8 ? '2' : c > 0.8 ? '1' : c > 0 ? 'go' : null;
       if (label !== this.lastLabel) {
         this.lastLabel = label;
         this.ui.onCountdown(label);
-        if (label === 'C’est parti') { this.view.enabled = true; sfx.clear(2); }
+        if (label === 'go') { this.view.enabled = true; sfx.clear(2); }
         else if (label) sfx.step(0);
       }
       return;
@@ -212,10 +213,10 @@ export class ChallengeMode {
       this.ui.onLines(k, this.chain, points);
       if (!this.stack.length) {
         this.score += 1000 * this.level;
-        this.ui.onBonus('Plateau vide');
+        this.ui.onBonus(t('ch.clear'));
       }
       const lvl = Math.min(20, 1 + Math.floor(this.lines / this.mode.linesPerLevel));
-      if (lvl > this.level) { this.level = lvl; this.ui.onBonus(`Niveau ${lvl}`); }
+      if (lvl > this.level) { this.level = lvl; this.ui.onBonus(t('ch.levelUp', { n: lvl })); }
       this.refresh();
       this.view.animateDrops(drops);
       this.hud();

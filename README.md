@@ -2,7 +2,7 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.3.0**
+**Version 1.4.0**
 
 ## Règles
 
@@ -22,6 +22,8 @@ Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA ins
 - **Entraînement** : pile presque vide, rythme lent, sans classement.
 
 Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en cours, dans les deux modes.
+
+**Réglages** (accueil) : langue (Auto / Français / English), apparence (Auto / Clair / Sombre), sons, vibrations. *Auto* suit l'appareil : français si sa langue commence par « fr », anglais sinon ; thème clair ou sombre selon le système. Les textes sont dans `js/i18n.js` (mêmes clés pour les deux langues).
 
 ## Tester sur le Mac
 
@@ -60,7 +62,8 @@ js/challenge.js         mode Challenge / Entraînement
 js/pieces.js            motifs des blocs
 js/solver.js            solveur du trait unique (méga-combo)
 js/start.js             grille de départ garantie
-js/main.js              navigation
+js/i18n.js              textes français / anglais
+js/main.js              navigation, réglages
 sw.js                   cache hors ligne
 manifest.webmanifest    installation
 ```

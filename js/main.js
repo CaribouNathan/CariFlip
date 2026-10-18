@@ -6,14 +6,14 @@ import { LEVEL_COUNT, CHAPTER_SIZE, levelParams } from './generator.js';
 import { store, save, markSolved, isSolvedLevel, isUnlocked, solvedCount, highestSolved, addRecord } from './storage.js';
 import { sfx, haptic } from './audio.js';
 import { makeBoard, set, applyPath } from './board.js';
+import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange } from './i18n.js';
 
-export const VERSION = '1.3.0';
+export const VERSION = '1.4.0';
 const $ = (s) => document.querySelector(s);
-const fmt = (n) => n.toLocaleString('fr-FR');
-const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+const fmt = (n) => fmtNum(n);
 
 // ---------- Navigation ----------
-const screens = ['home', 'levels', 'game', 'cmenu', 'challenge', 'howto'];
+const screens = ['home', 'settings', 'levels', 'game', 'cmenu', 'challenge', 'howto'];
 const stack = ['home'];
 const hooks = {};
 const current = () => stack[stack.length - 1];
@@ -71,8 +71,8 @@ function closeSheet() { sheet.hidden = true; }
 // ---------- Accueil ----------
 function refreshHome() {
   const n = solvedCount();
-  $('#puzzle-progress').textContent = n ? `${n} / ${LEVEL_COUNT} niveaux résolus` : `${LEVEL_COUNT} niveaux`;
-  $('#best-score').textContent = store.best ? `Meilleur score : ${fmt(store.best)}` : 'Tenez le plus longtemps possible';
+  $('#puzzle-progress').textContent = n ? t('home.progress', { n, total: LEVEL_COUNT }) : t('home.levels', { n: LEVEL_COUNT });
+  $('#best-score').textContent = store.best ? t('home.best', { s: fmt(store.best) }) : t('home.challengeSub');
 }
 hooks.home = { enter: refreshHome };
 $('#version').textContent = VERSION;
@@ -83,6 +83,35 @@ $('#go-puzzle').addEventListener('click', () => {
 });
 $('#go-challenge').addEventListener('click', () => go('cmenu'));
 $('#go-howto').addEventListener('click', () => go('howto'));
+$('#go-settings').addEventListener('click', () => go('settings'));
+
+// ---------- Réglages ----------
+const THEME_COLORS = { light: '#F2F2F7', dark: '#000000' };
+function applyTheme() {
+  const root = document.documentElement;
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  if (store.theme === 'light' || store.theme === 'dark') {
+    root.dataset.theme = store.theme;
+    metas.forEach((m) => { m.content = THEME_COLORS[store.theme]; });
+  } else {
+    delete root.dataset.theme;
+    metas.forEach((m) => { m.content = m.media.includes('dark') ? THEME_COLORS.dark : THEME_COLORS.light; });
+  }
+  // Les canvas relisent leurs couleurs.
+  refreshCanvases();
+}
+function refreshCanvases() { [puzzleView, challengeView, ...demos].forEach((v) => v && v.refreshTheme()); }
+function bindSeg(id, value, onPick) {
+  const seg = $(id);
+  const paint = (v) => seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.value === v)));
+  seg.querySelectorAll('button').forEach((b) => {
+    b.setAttribute('role', 'radio');
+    b.addEventListener('click', () => { paint(b.dataset.value); onPick(b.dataset.value); });
+  });
+  paint(value);
+}
+bindSeg('#seg-lang', store.lang || 'auto', (v) => setLangPref(v));
+bindSeg('#seg-theme', store.theme || 'auto', (v) => { store.theme = v; save(); applyTheme(); });
 
 const optSound = $('#opt-sound'), optHaptics = $('#opt-haptics');
 optSound.checked = store.sound;
@@ -117,7 +146,7 @@ function renderLevels() {
   renderChapters();
   const a = chapter * CHAPTER_SIZE + 1;
   const p = levelParams(a);
-  $('#chapter-caption').textContent = `Grilles de ${p.W} × ${p.H}${p.holes[1] ? ', avec cases creuses' : ''}`;
+  $('#chapter-caption').textContent = t('levels.caption', { w: p.W, h: p.H, holes: !!p.holes[1] });
   const grid = $('#level-grid');
   grid.innerHTML = '';
   const next = highestSolved() + 1;
@@ -128,7 +157,7 @@ function renderLevels() {
     if (!isUnlocked(n)) {
       b.disabled = true;
       b.innerHTML = '<svg><use href="#i-lock"/></svg>';
-      b.setAttribute('aria-label', `Niveau ${n}, verrouillé`);
+      b.setAttribute('aria-label', t('levels.locked', { n }));
     } else {
       b.innerHTML = `<span>${n}</span>`;
       if (solved) {
@@ -137,7 +166,7 @@ function renderLevels() {
         b.innerHTML += `<svg class="mark"><use href="#i-${solved.hints === 0 ? 'star' : 'check'}"/></svg>`;
       }
       if (n === next) b.classList.add('current');
-      b.setAttribute('aria-label', `Niveau ${n}${solved ? ', résolu' : ''}`);
+      b.setAttribute('aria-label', t('levels.item', { n, solved: !!solved }));
       b.addEventListener('click', () => go('game', n));
     }
     grid.appendChild(b);
@@ -163,7 +192,7 @@ const puzzle = new PuzzleMode(puzzleView, {
   onStatus: (text, tone = '') => { statusEl.textContent = text; statusEl.className = tone; },
   onDirty: (k) => {
     const chip = $('#dirty-chip');
-    chip.textContent = k ? plural(k, 'ligne mixte', 'lignes mixtes') : 'Résolu';
+    chip.textContent = k ? t('game.dirty', { n: k }) : t('game.solved');
     chip.classList.toggle('done', !k);
   },
   onShake: () => {
@@ -174,13 +203,13 @@ const puzzle = new PuzzleMode(puzzleView, {
     markSolved(n, hints);
     const last = n >= LEVEL_COUNT;
     const actions = [];
-    if (!last) actions.push({ label: 'Niveau suivant', primary: true, run: () => loadLevel(n + 1) });
-    actions.push({ label: 'Rejouer', run: () => loadLevel(n) });
-    actions.push({ label: 'Liste des niveaux', run: () => history.back() });
+    if (!last) actions.push({ label: t('game.next'), primary: true, run: () => loadLevel(n + 1) });
+    actions.push({ label: t('game.replay'), run: () => loadLevel(n) });
+    actions.push({ label: t('game.list'), run: () => history.back() });
     openSheet({
       badge: `<svg style="color:var(--${hints ? 'success' : 'stroke'})"><use href="#i-${hints ? 'check' : 'star'}"/></svg>`,
-      title: `Niveau ${n} réussi`,
-      body: last ? 'Les 200 niveaux sont terminés. Bravo.' : hints ? `Avec ${plural(hints, 'indice', 'indices')}. Refaites-le sans pour gagner l’étoile.` : 'Sans indice : étoile gagnée.',
+      title: t('game.winTitle', { n }),
+      body: last ? t('game.winAll') : hints ? t('game.winHints', { n: hints }) : t('game.winStar'),
       actions, locked: true,
     });
   },
@@ -189,7 +218,7 @@ let currentLevel = 1;
 function loadLevel(n) {
   currentLevel = n;
   store.lastLevel = n; save();
-  $('#game-title').textContent = `Niveau ${n}`;
+  $('#game-title').textContent = t('game.level', { n });
   const p = levelParams(n);
   $('#size-label').textContent = `${p.W} × ${p.H}`;
   const prev = $('#prev-level'), next = $('#next-level');
@@ -231,34 +260,34 @@ const countdownEl = $('#countdown');
 const challenge = new ChallengeMode(challengeView, {
   onHud: ({ score, level, lines, mode }) => {
     $('#hud-score').textContent = fmt(score);
-    $('#hud-level').textContent = `Niveau ${level}`;
-    $('#hud-lines').textContent = plural(lines, 'ligne', 'lignes');
-    $('#hud-mode').textContent = mode === 'practice' ? 'Entraînement' : '';
+    $('#hud-level').textContent = t('ch.level', { n: level });
+    $('#hud-lines').textContent = t('ch.lines', { n: lines });
+    $('#hud-mode').textContent = mode === 'practice' ? t('ch.practice') : '';
   },
   onCountdown: (label) => {
-    countdownEl.className = 'countdown' + (label && label.length > 1 ? ' go' : '');
-    countdownEl.innerHTML = label ? `<span>${label}</span>` : '';
+    countdownEl.className = 'countdown' + (label === 'go' ? ' go' : '');
+    countdownEl.innerHTML = label ? `<span>${label === 'go' ? t('ch.go') : label}</span>` : '';
   },
   onLines: (k, chain, points) => {
-    popBonus(`${plural(k, 'ligne', 'lignes')}  +${fmt(points)}`, chain > 1 ? `Chaîne ×${chain}` : '');
+    popBonus(`${t('ch.lines', { n: k })}  +${fmt(points)}`, chain > 1 ? t('ch.chain', { n: chain }) : '');
   },
   onBonus: (text) => popBonus(text),
   onGameOver: (r) => {
     const practice = !MODES[r.mode].records;
     const grade = gradeFor(r.score);
-    let title = 'Partie terminée', rank = -1;
+    let title = t('ch.over'), rank = -1;
     if (!practice) {
       rank = addRecord({ score: r.score, lines: r.lines, grade, chain: r.maxChain, date: Date.now() });
-      title = rank === 0 ? 'Nouveau record' : rank > 0 ? `${rank + 1}e meilleur score` : 'Partie terminée';
+      title = rank === 0 ? t('ch.record') : rank > 0 ? t('ch.rank', { n: rank + 1 }) : t('ch.over');
     }
     setTimeout(() => openSheet({
       badge: practice ? fmt(r.score) : grade,
       badgeClass: practice ? '' : 'grade',
-      title: practice ? 'Entraînement terminé' : title,
-      body: `${fmt(r.score)} points · ${plural(r.lines, 'ligne', 'lignes')} · chaîne max ×${r.maxChain || 0}`,
+      title: practice ? t('ch.practiceOver') : title,
+      body: t('ch.summary', { s: fmt(r.score), lines: r.lines, chain: r.maxChain || 0 }),
       actions: [
-        { label: 'Rejouer', primary: true, run: () => startChallenge(r.mode) },
-        { label: 'Menu Challenge', run: () => history.back() },
+        { label: t('game.replay'), primary: true, run: () => startChallenge(r.mode) },
+        { label: t('ch.menu'), run: () => history.back() },
       ],
       locked: true,
     }), 900);
@@ -273,12 +302,12 @@ function startChallenge(mode = challengeMode) {
 function pauseMenu() {
   challenge.pause();
   openSheet({
-    title: 'Pause',
-    body: `Score : ${fmt(challenge.score)}`,
+    title: t('ch.pause'),
+    body: t('ch.score', { s: fmt(challenge.score) }),
     actions: [
-      { label: 'Reprendre', primary: true, run: () => challenge.resume() },
-      { label: 'Recommencer', run: () => startChallenge() },
-      { label: 'Quitter', run: () => { challenge.stop(); history.back(); } },
+      { label: t('ch.resume'), primary: true, run: () => challenge.resume() },
+      { label: t('ch.restart'), run: () => startChallenge() },
+      { label: t('ch.quit'), run: () => { challenge.stop(); history.back(); } },
     ],
     locked: true,
   });
@@ -306,13 +335,13 @@ document.addEventListener('visibilitychange', () => {
 function renderRecords() {
   const box = $('#records');
   const recs = store.records || [];
-  if (!recs.length) { box.innerHTML = '<p class="empty">Aucune partie de Challenge pour l’instant.</p>'; return; }
+  if (!recs.length) { box.innerHTML = `<p class="empty">${t('cmenu.none')}</p>`; return; }
   box.innerHTML = recs.map((r, i) => `
     <div class="rec">
       <span class="rec-rank">${i + 1}</span>
       <span class="rec-grade">${r.grade || gradeFor(r.score)}</span>
       <span class="rec-score">${fmt(r.score)}</span>
-      <span class="rec-meta">${plural(r.lines || 0, 'ligne', 'lignes')}<br>${r.date ? new Date(r.date).toLocaleDateString('fr-FR') : ''}</span>
+      <span class="rec-meta">${t('ch.lines', { n: r.lines || 0 })}<br>${r.date ? fmtDate(r.date) : ''}</span>
     </div>`).join('');
 }
 hooks.cmenu = { enter: renderRecords };
@@ -363,17 +392,15 @@ hooks.howto = {
 };
 
 // Thème : les canvas relisent les couleurs quand le système bascule clair/sombre.
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
-  [puzzleView, challengeView, ...demos].forEach((v) => v.refreshTheme());
-});
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', refreshCanvases);
 
 // ---------- Installation (PWA) ----------
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const hint = $('#install-hint');
-if (!standalone && isIOS) {
-  hint.textContent = 'Pour l’installer : bouton Partager de Safari, puis « Sur l’écran d’accueil ».';
-  hint.hidden = false;
+function refreshInstallHint() {
+  if (!standalone && isIOS && !deferredPrompt) { hint.textContent = t('home.installIOS'); hint.hidden = false; }
+  if (deferredPrompt) hint.querySelector('button').textContent = t('home.installBtn');
 }
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -382,7 +409,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
   hint.innerHTML = '';
   const b = document.createElement('button');
   b.className = 'pill-btn';
-  b.textContent = 'Installer l’application';
+  b.textContent = t('home.installBtn');
   b.addEventListener('click', async () => { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; hint.hidden = true; });
   hint.appendChild(b);
   hint.hidden = false;
@@ -390,6 +417,20 @@ window.addEventListener('beforeinstallprompt', (e) => {
 if ('serviceWorker' in navigator && location.protocol === 'https:' || location.hostname === 'localhost') {
   navigator.serviceWorker?.register('sw.js').catch(() => { /* hors PWA (aperçu) : sans effet */ });
 }
+
+// Langue : textes fixes, puis écran courant re-rendu quand la langue change.
+applyStatic();
+applyTheme();
+refreshInstallHint();
+onLangChange(() => {
+  refreshInstallHint();
+  const id = current();
+  if (id === 'game') {
+    $('#game-title').textContent = t('game.level', { n: currentLevel });
+    puzzle.ui.onDirty(puzzle.board ? dirtyCount() : 0);
+  } else if (id !== 'challenge') hooks[id]?.enter?.();
+});
+function dirtyCount() { const c = $('#dirty-chip'); return c.classList.contains('done') ? 0 : parseInt(c.textContent, 10) || 0; }
 
 history.replaceState({ depth: 1 }, '');
 show('home');

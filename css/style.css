@@ -9,6 +9,7 @@
   --sep: rgba(60, 60, 67, 0.18);
   --fill: rgba(118, 118, 128, 0.12);
   --accent: #007AFF;
+  --gray: #8E8E93;
   --stroke: #FF9500;
   --success: #34C759;
   --danger: #FF3B30;
@@ -29,7 +30,7 @@
     --bg: #000000; --card: #1C1C1E; --label: #FFFFFF;
     --secondary: rgba(235, 235, 245, 0.6); --tertiary: rgba(235, 235, 245, 0.3);
     --sep: rgba(84, 84, 88, 0.6); --fill: rgba(118, 118, 128, 0.24);
-    --accent: #0A84FF; --stroke: #FF9F0A; --success: #30D158; --danger: #FF453A;
+    --accent: #0A84FF; --gray: #8E8E93; --stroke: #FF9F0A; --success: #30D158; --danger: #FF453A;
     --board: #48484A; --reserve: #262628; --gauge: #FFD60A; --well: rgba(255, 255, 255, 0.12); --dot: rgba(235, 235, 245, 0.25);
     --tile-dark: #0B0B0C; --tile-light: #F2F2F7; --tile-light-edge: rgba(0, 0, 0, 0);
     color-scheme: dark;
@@ -39,7 +40,7 @@
   --bg: #000000; --card: #1C1C1E; --label: #FFFFFF;
   --secondary: rgba(235, 235, 245, 0.6); --tertiary: rgba(235, 235, 245, 0.3);
   --sep: rgba(84, 84, 88, 0.6); --fill: rgba(118, 118, 128, 0.24);
-  --accent: #0A84FF; --stroke: #FF9F0A; --success: #30D158; --danger: #FF453A;
+  --accent: #0A84FF; --gray: #8E8E93; --stroke: #FF9F0A; --success: #30D158; --danger: #FF453A;
   --board: #48484A; --reserve: #262628; --gauge: #FFD60A; --well: rgba(255, 255, 255, 0.12); --dot: rgba(235, 235, 245, 0.25);
   --tile-dark: #0B0B0C; --tile-light: #F2F2F7; --tile-light-edge: rgba(0, 0, 0, 0);
   color-scheme: dark;
@@ -280,3 +281,28 @@ svg { width: 1em; height: 1em; flex: none; }
 #challenge .bottombar { padding-block: 4px 6px; }
 #challenge .hud-score { font-size: 24px; }
 #game .stage { margin: 4px 2px; }
+
+/* v1.4 — Réglages (contrôles segmentés), écran « Comment jouer » compact avec bouton fixe */
+.group.pad { padding: 8px; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; background: var(--fill); border-radius: 9px; padding: 2px; }
+.seg button { padding: 7px 4px; border-radius: 7px; font-size: 15px; font-weight: 500; color: var(--label); }
+.seg button[aria-checked="true"] { background: var(--card); font-weight: 600; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12), 0 0 0 0.5px var(--sep); }
+:root[data-theme="dark"] .seg button[aria-checked="true"] { background: #636366; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg button[aria-checked="true"] { background: #636366; } }
+#settings .section-title { margin-top: 4px; }
+
+#howto .scroll { padding-block: 4px 12px; }
+#howto .steps { gap: 8px; margin: 0 auto; }
+#howto .step { padding: 8px 12px 8px 8px; gap: 10px; }
+#howto .step-art { width: 84px; height: 70px; }
+#howto .step h3 { font-size: 15px; margin-bottom: 2px; }
+#howto .step p { font-size: 13px; line-height: 1.3; }
+#howto .howto-note { font-size: 13px; margin: 10px auto 0; }
+.screen-footer {
+  display: flex; justify-content: center;
+  padding-block: 10px 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  border-top: 0.5px solid var(--sep); background: var(--bg);
+}
+.screen-footer .btn { width: min(100%, 360px); }
