@@ -2,7 +2,7 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.8.0**
+**Version 1.8.1**
 
 ## Règles
 
@@ -31,8 +31,9 @@ Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en 
 
 - **Méga-combo** : 6 lignes ou plus d'un seul trait en Challenge (la figure « 1 » de départ en un trait) → « MEGA FLIP », confettis, jingle, +5 000 × niveau.
 - **Niveau 201** : caribou en pixel-art, débloqué quand les 200 niveaux sont résolus sans indice (onglet « ★ 201 »).
-- **31 octobre** : tuiles orange/noir. **25 décembre** : tuiles rouge/vert. Seules les couleurs changent. Test : ajouter `?season=halloween` ou `?season=christmas` à l'adresse.
+- **31 octobre** : tuiles orange/noir. **25 décembre** : tuiles rouge/vert. Seules les couleurs changent, y compris le logo et l'icône (onglet, et icône d'écran d'accueil si l'app est ajoutée ce jour-là). Test : ajouter `?season=halloween` ou `?season=christmas` à l'adresse.
 - **Appui long sur le logo** de l'accueil : message secret.
+- **Appui long sur le numéro de version** : indice sur les tuiles de saison.
 - L'icône de l'app est elle-même un puzzle résolu : son trait rend chaque ligne unie.
 
 ## Tester sur le Mac

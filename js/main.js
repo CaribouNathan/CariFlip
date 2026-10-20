@@ -8,7 +8,7 @@ import { sfx, haptic, hapticsAvailable, silentOverrideAvailable, applyAudioSessi
 import { makeBoard, set, applyPath, isTile, at } from './board.js';
 import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange } from './i18n.js';
 
-export const VERSION = '1.8.0';
+export const VERSION = '1.8.1';
 const $ = (s) => document.querySelector(s);
 const megaEl = document.querySelector('#mega');
 
@@ -22,7 +22,14 @@ function seasonFor(d = new Date()) {
   return null;
 }
 const season = seasonFor();
-if (season) document.documentElement.classList.add('season-' + season);
+if (season) {
+  document.documentElement.classList.add('season-' + season);
+  // Icônes de saison : logo, onglet, signet iOS et manifeste (pris en compte à l'ajout à l'écran d'accueil).
+  document.querySelector('link[rel="icon"]').href = `icons/icon-${season}.svg`;
+  document.querySelector('link[rel="apple-touch-icon"]').href = `icons/apple-touch-icon-${season}.png`;
+  document.querySelector('link[rel="manifest"]').href = `manifest-${season}.webmanifest`;
+  document.getElementById('logo').src = `icons/icon-${season}.svg`;
+}
 const fmt = (n) => fmtNum(n);
 
 // ---------- Navigation ----------
@@ -464,6 +471,14 @@ function showBrother() {
   $('#sheet-title').classList.add('egg');
 }
 longPress($('#logo'), 700, showBrother);
+// Appui long sur le numéro de version : indice sur les tuiles de saison.
+longPress($('#version-line'), 700, () => {
+  haptic(20);
+  openSheet({
+    badge: `<img src="${$('#logo').getAttribute('src')}" alt="" width="56" height="56" style="border-radius:13px">`,
+    title: t('egg.psst'), body: t('egg.season'), actions: [{ label: t('egg.ok'), primary: true }],
+  });
+});
 
 // ---------- Statistiques ----------
 function renderStats() {
@@ -643,4 +658,4 @@ show('home');
 refreshHome();
 
 // Accès de diagnostic (console / tests automatisés), sans effet sur le jeu.
-window.cariflipDebug = { challenge, puzzle, puzzleView, challengeView, showMega, offerUpdate, showBrother, renderStats };
+window.cariflipDebug = { challenge, puzzle, puzzleView, challengeView, showMega, offerUpdate, showBrother, renderStats, season };
