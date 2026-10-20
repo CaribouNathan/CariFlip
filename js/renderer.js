@@ -16,11 +16,11 @@ function readTheme() {
 }
 
 export class BoardView {
-  constructor(canvas, { interactive = true, onStep, onCommit, onStart, onEnd } = {}) {
+  constructor(canvas, { interactive = true, onStep, onCommit, onStart, onEnd, onPending } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.interactive = interactive;
-    this.onStep = onStep; this.onCommit = onCommit; this.onStart = onStart; this.onEnd = onEnd;
+    this.onStep = onStep; this.onCommit = onCommit; this.onStart = onStart; this.onEnd = onEnd; this.onPending = onPending;
     this.board = null;
     this.field = null;          // {x0,y0,x1,y1} zone de jeu (fond plein)
     this.zones = [];            // zones de fond supplémentaires [{x0,y0,x1,y1,tone}]
@@ -133,23 +133,40 @@ export class BoardView {
   }
   inPath(x, y) { return this.path.some((p) => p[0] === x && p[1] === y); }
 
+  // Saisie façon Polarium : le trait reste affiché quand on lève le doigt ; on peut le reprendre
+  // depuis sa dernière case, et on le VALIDE en touchant à nouveau cette dernière case.
+  // Toucher ailleurs recommence un trait. (pending = trait levé, en attente de validation)
   down(e) {
     if (!this.enabled || !this.board || this.drawing) return;
     const c = this.cellAt(e, false);
-    if (!c || !this.canEnter(c[0], c[1])) return;
+    if (!c) return;
     e.preventDefault();
+    const last = this.path[this.path.length - 1];
+    if (this.pending && last && last[0] === c[0] && last[1] === c[1]) {
+      // Reprise depuis la dernière case : un simple appui (sans glisser) validera.
+      this.canvas.setPointerCapture?.(e.pointerId);
+      this.drawing = true; this.moved = false; this.pointerId = e.pointerId;
+      return;
+    }
+    if (!this.canEnter(c[0], c[1])) return;
+    const hadPath = this.pending && this.path.length;
     this.canvas.setPointerCapture?.(e.pointerId);
-    this.drawing = true;
+    this.drawing = true; this.moved = true; this.pending = false;
     this.pointerId = e.pointerId;
     this.path = [c];
-    this.onStart?.();
+    if (!hadPath) this.onStart?.();
     this.onStep?.(this.path.length, c);
   }
 
   move(e) {
     if (!this.drawing || e.pointerId !== this.pointerId) return;
     const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-    for (const ev of (events.length ? events : [e])) { this.track(ev); if (!this.drawing) return; }
+    for (const ev of (events.length ? events : [e])) {
+      const before = this.path.length, lastBefore = this.path[before - 1];
+      this.track(ev);
+      if (this.path.length !== before || this.path[this.path.length - 1] !== lastBefore) this.moved = true;
+      if (!this.drawing) return;
+    }
   }
 
   track(e) {
@@ -187,21 +204,27 @@ export class BoardView {
   up(e) {
     if (!this.drawing || (e.pointerId !== undefined && e.pointerId !== this.pointerId)) return;
     this.drawing = false;
+    if (!this.moved && this.pending) { this.commitPending(); return; } // appui sur la dernière case
+    if (!this.path.length) { this.pending = false; this.onEnd?.(); return; }
+    this.pending = true;            // le trait reste affiché, en attente de validation
+    this.pendingSince = performance.now();
+    this.onPending?.(this.path);
+  }
+
+  commitPending() {
     const path = this.path;
-    this.path = [];
+    this.path = []; this.pending = false;
     this.onEnd?.();
     if (path.length) this.onCommit?.(path);
   }
 
   // Annule le trait en cours sans rien inverser (bouton ✕ ou interruption du jeu).
   cancelDrawing() {
-    const was = this.drawing;
-    this.drawing = false;
+    const was = this.drawing || this.pending;
+    if (this.drawing) { try { this.canvas.releasePointerCapture?.(this.pointerId); } catch { /* déjà relâché */ } }
+    this.drawing = false; this.pending = false;
     this.path = [];
-    if (was) {
-      try { this.canvas.releasePointerCapture?.(this.pointerId); } catch { /* déjà relâché */ }
-      this.onEnd?.();
-    }
+    if (was) this.onEnd?.();
     return was;
   }
 
@@ -375,6 +398,22 @@ export class BoardView {
 
     if (this.hintPath && this.hintPath.length) this.drawLine(this.hintPath, T.hint, 0.55, now, true);
     if (this.path.length) this.drawLine(this.path, T.stroke, 0.95, now, false);
+    if (this.pending && this.path.length) this.drawEndMarker(now);
+    c.restore();
+  }
+
+  // Dernière case du trait levé : anneau pulsé « touchez ici pour valider ».
+  drawEndMarker(now) {
+    const c = this.ctx, s = this.cell, T = this.theme;
+    const [x, y] = this.path[this.path.length - 1];
+    const cx = x * s + s / 2, cy = this.rowTop(y) + this.rowH(y) / 2;
+    const p = (Math.sin((now - (this.pendingSince || 0)) / 180) + 1) / 2;
+    c.save();
+    c.strokeStyle = T.stroke; c.lineWidth = Math.max(2.5, s * 0.09);
+    c.globalAlpha = 0.5 + 0.5 * p;
+    c.beginPath(); c.arc(cx, cy, s * (0.32 + 0.1 * p), 0, Math.PI * 2); c.stroke();
+    c.fillStyle = T.stroke; c.globalAlpha = 1;
+    c.beginPath(); c.arc(cx, cy, Math.max(4, s * 0.13), 0, Math.PI * 2); c.fill();
     c.restore();
   }
 

@@ -2,24 +2,24 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.5.0**
+**Version 1.7.0**
 
 ## Règles
 
 - Tracez un seul trait continu, case par case, horizontalement ou verticalement, sans repasser par une case.
-- Au lever du doigt, chaque tuile traversée s'inverse (noir ↔ blanc).
+- Le trait reste affiché quand on lève le doigt : on peut le reprendre depuis sa dernière case. **Toucher la dernière case valide le trait** : chaque tuile traversée s'inverse (noir ↔ blanc). Toucher ailleurs recommence un trait.
 - Une ligne entièrement noire ou entièrement blanche est validée.
 - Le cadre de points autour de la grille se traverse sans rien inverser. Les cases creuses sont infranchissables.
 
-**Puzzle** : 200 niveaux en 8 chapitres, à résoudre en un seul trait. 3 indices progressifs par niveau, étoile si résolu sans indice.
-**Challenge** (modèle : le mode Challenge de Polarium) : des blocs de lignes (30 motifs tous symétriques gauche-droite, couleurs inversées au hasard) tombent du haut et s'empilent dans un puits de 8 colonnes. Seules les 10 lignes du bas sont à portée du doigt, les 7 lignes au-dessus forment une réserve visible. Chaque ligne effacée fait retomber la pile. Partie perdue quand la pile franchit la ligne rouge, dont la jauge jaune annonce le prochain bloc.
+**Puzzle** : 200 niveaux en 8 chapitres, à résoudre en un seul trait. Niveaux 1-100 : les 100 puzzles « Stock » de Polarium, relevés image par image dans une vidéo de référence (usage personnel) ; niveaux 101-200 : générés. 3 indices progressifs par niveau, étoile si résolu sans indice.
 
-- Points d'un trait : 100 / 300 / 600 / 1 000… selon le nombre de lignes, × chaîne (traits gagnants consécutifs) × niveau. Plateau vide : +1 000 × niveau.
-- Niveau +1 toutes les 10 lignes : blocs plus fréquents, plus rapides, plus grands, avec un peu de bruit dès le niveau 4 (toujours par paire de cases miroir, la symétrie est conservée).
+**Challenge** (modèle : le mode Challenge de Polarium) : puits de 9 colonnes. La partie démarre sur la figure « 1 » (8 lignes, effaçable d'un trait), puis **la même suite de 409 blocs que dans Polarium**, à la même cadence, relevée image par image dans une partie complète (`js/sequence.js`, usage personnel). À force de jouer, on connaît les blocs et on prépare ses enchaînements ; certains blocs ne s'effacent qu'en les combinant avec la pile. À la fin de la suite, elle reprend 15 % plus vite. Seules les 10 lignes du bas sont à portée du doigt, les 7 au-dessus forment une réserve ; partie perdue quand la pile franchit la ligne rouge, dont la jauge jaune annonce le prochain bloc.
+
+- Points d'un trait : (100 / 300 / 600 / 1 000… selon le nombre de lignes + 150 × (chaîne − 1)) × niveau. Plateau vide : +1 000 × niveau.
+- Niveau +1 toutes les 10 lignes (multiplie les points et accélère un peu la chute).
 - « Faire tomber » : le bloc en cours tombe d'un coup (ou le suivant arrive) contre quelques points.
 - Top 3 avec note en lettre (E- à S).
-- **Grille de départ garantie** : chaque partie démarre sur une grille (symétrique) pour laquelle un trait unique efface toutes les lignes d'un coup. Le jeu la vérifie avec un solveur (`js/solver.js`) et en tire une autre sinon. La garantie porte sur la grille de départ : ensuite, les traits du joueur changent la grille.
-- **Entraînement** : pile presque vide, rythme lent, sans classement.
+- **Entraînement** : même suite, rythme 1,6 × plus lent, sans classement.
 
 Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en cours, dans les deux modes.
 
@@ -27,7 +27,7 @@ Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en 
 
 ## Easter eggs
 
-- **Méga-combo** : 8 lignes ou plus d'un seul trait en Challenge → « MEGA FLIP », confettis, jingle, +5 000 × niveau.
+- **Méga-combo** : 6 lignes ou plus d'un seul trait en Challenge (la figure « 1 » de départ en un trait) → « MEGA FLIP », confettis, jingle, +5 000 × niveau.
 - **Niveau 201** : caribou en pixel-art, débloqué quand les 200 niveaux sont résolus sans indice (onglet « ★ 201 »).
 - **31 octobre** : tuiles orange/noir. **25 décembre** : tuiles rouge/vert. Seules les couleurs changent. Test : ajouter `?season=halloween` ou `?season=christmas` à l'adresse.
 - **7 appuis sur le logo** de l'accueil : message secret.
@@ -39,7 +39,7 @@ Double-cliquer `serve.command`, puis ouvrir http://localhost:8080. Le service wo
 
 ## Publier sur GitHub Pages
 
-1. Créer le dépôt `cariflip` sur le compte CaribouNathan et y pousser le contenu de ce dossier (racine du dépôt = ce dossier).
+1. Créer le dépôt `CariFlip` sur le compte CaribouNathan et y pousser le contenu de ce dossier (racine du dépôt = ce dossier).
 2. Settings › Pages › Source : *Deploy from a branch*, branche `main`, dossier `/ (root)`.
 3. L'app est servie sur `https://caribounathan.github.io/CariFlip/`.
 
@@ -55,7 +55,7 @@ Après toute modification, incrémenter `CACHE` dans `sw.js` (et `VERSION` dans 
 
 Les niveaux sont générés à partir d'une graine fixe (`js/rng.js`), identiques sur tous les appareils, chacun avec une solution garantie. Modifier `GEN_VERSION` ou la courbe `TIERS` (`js/generator.js`) change tous les niveaux et décale la progression des joueurs.
 
-Vérification : `node tests/generator.test.mjs` (contrôle les 200 niveaux) `node tests/pieces.test.mjs` (symétrie des blocs du Challenge) et `node tests/start.test.mjs` (méga-combo garanti sur les grilles de départ).
+Vérification : `node tests/generator.test.mjs` (contrôle les 200 niveaux) `node tests/pieces.test.mjs` (symétrie des blocs du Challenge). `node tools/check-challenge.mjs` liste les blocs du Challenge qui ne s'effacent pas seuls. Les solutions des 100 puzzles Stock sont recalculées par `node tools/solve-stock.mjs`.
 
 ## Structure
 
@@ -67,9 +67,9 @@ js/generator.js         générateur de puzzles
 js/renderer.js          rendu canvas + saisie du trait
 js/puzzle.js            mode Puzzle
 js/challenge.js         mode Challenge / Entraînement
-js/pieces.js            motifs des blocs
-js/solver.js            solveur du trait unique (méga-combo)
-js/start.js             grille de départ garantie
+js/sequence.js          suite fixe des blocs du Challenge (Polarium)
+js/stock.js             les 100 puzzles de Polarium
+tools/                  relevés (puzzles, Challenge) et solveur
 js/i18n.js              textes français / anglais
 js/main.js              navigation, réglages
 sw.js                   cache hors ligne

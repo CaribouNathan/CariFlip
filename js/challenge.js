@@ -2,16 +2,15 @@
 // Seule la zone basse est à portée du doigt ; effacer des lignes fait retomber la pile,
 // ce qui ramène à portée les lignes de la réserve. Partie perdue si la pile dépasse la limite.
 import { makeBoard, set, isTile, at, BLACK, WHITE, FREE } from './board.js';
-import { randomPiece, PIECE_W } from './pieces.js';
-import { buildStartStack } from './start.js';
+import { START_FIGURE, START_SOLUTION, FIRST_DELAY, SEQUENCE } from './sequence.js';
 import { sfx, haptic } from './audio.js';
 import { t } from './i18n.js';
 
-export const COLS = PIECE_W;          // 8 colonnes de tuiles
+export const COLS = 9;                // 9 colonnes de tuiles, comme Polarium
 export const SPAWN = 1;               // ligne au-dessus de la limite (les blocs entrent par le haut)
 export const RESERVE = 7;             // réserve visible mais hors d'atteinte
 export const PLAY = 10;               // zone jouable
-export const MEGA_LINES = 8;          // seuil du méga-combo
+export const MEGA_LINES = 6;          // seuil du méga-combo (la figure de départ en fait 8)
 const W = COLS + 2;
 const H = SPAWN + RESERVE + PLAY + 1; // + ligne de cadre en bas
 const PLAY_TOP = SPAWN + RESERVE;
@@ -22,17 +21,15 @@ const yOf = (i) => BOTTOM_Y - i;      // ligne de pile i (0 = tout en bas) -> li
 export const MODES = {
   challenge: {
     label: 'Challenge',
-    startRows: PLAY,
-    interval: (lvl) => Math.max(2400, 8500 - (lvl - 1) * 650),
-    fall: (lvl) => 3 + lvl * 0.6,     // lignes par seconde
+    pace: 1,                          // rythme de la vidéo de référence
+    fall: (lvl) => Math.min(8, 4 + lvl * 0.3), // lignes par seconde
     linesPerLevel: 10,
     records: true,
   },
   practice: {
     label: 'Entraînement',
-    startRows: 3,
-    interval: () => 12000,
-    fall: () => 2.5,
+    pace: 1.6,                        // même suite de blocs, plus lentement
+    fall: () => 3,
     linesPerLevel: Infinity,
     records: false,
   },
@@ -42,6 +39,7 @@ export const MODES = {
 export const linePoints = (k) => (k * (k + 1) / 2) * 100;
 
 const uniform = (row) => row.every((c) => c === row[0]);
+const toRow = (str) => [...str].map((c) => (c === '#' ? BLACK : WHITE));
 
 export class ChallengeMode {
   constructor(view, ui) {
@@ -58,12 +56,14 @@ export class ChallengeMode {
     this.modeKey = modeKey;
     this.mode = MODES[modeKey];
     this.level = 1;
-    // Grille de départ garantie : un trait unique existe qui efface toutes les lignes d'un coup.
-    const start = buildStartStack(this.mode.startRows);
-    this.stack = start.stack;
-    this.startSolution = start.solution; // coordonnées locales (y 0 = ligne du haut de la grille)
+    // Départ : la figure « 1 » de Polarium, posée au fond, qui s'efface d'un seul trait.
+    const h = START_FIGURE.length;
+    this.stack = START_FIGURE.map(toRow).reverse();                // pile : index 0 = ligne du bas
+    this.startSolution = START_SOLUTION.map(([x, y]) => [x, BOTTOM_Y - h + y]); // coordonnées du plateau
+    this.seq = 0;                                                  // prochain bloc de la suite fixe
+    this.nextGap = FIRST_DELAY * 1000 * this.mode.pace;
     this.score = 0; this.lines = 0; this.chain = 0; this.maxChain = 0;
-    this.piece = null; this.timer = this.mode.interval(1) * 0.5;
+    this.piece = null; this.timer = 0;
     this.paused = false; this.over = false; this.busy = false;
     this.countdown = 3.8;
     this.lastLabel = undefined;
@@ -116,31 +116,35 @@ export class ChallengeMode {
     }
     if (this.busy) return; // la pile est figée pendant l'animation d'effacement
 
+    // Cadence de la suite fixe : le compteur tourne aussi pendant la chute du bloc précédent.
+    this.timer += dt * 1000;
+    this.view.limit.gauge = Math.min(1, this.timer / this.nextGap);
     if (this.piece) {
       const p = this.piece;
       const target = yOf(this.stack.length);
       p.yb = Math.min(target, p.yb + p.speed * dt);
       if (p.yb >= target) this.land();
-      this.view.limit.gauge = 0;
-    } else {
-      const iv = this.mode.interval(this.level);
-      this.timer += dt * 1000;
-      this.view.limit.gauge = this.timer / iv;
-      this.ui.onGauge?.(this.timer / iv);
-      if (this.timer >= iv) this.spawn();
-    }
+    } else if (this.timer >= this.nextGap) this.spawn();
   }
 
   spawn() {
-    const rows = randomPiece(this.level);
-    this.piece = { rows, x0: 1, yb: SPAWN - 1, speed: this.mode.fall(this.level) };
+    // Bloc suivant de la suite fixe de Polarium ; à la fin de la suite, elle reprend un peu plus vite.
+    const loop = Math.floor(this.seq / SEQUENCE.length);
+    const [gap, g] = SEQUENCE[this.seq % SEQUENCE.length];
+    this.seq++;
+    const rows = g.split('/').map(toRow);
+    this.piece = { rows, solution: null, x0: 1, yb: SPAWN - 1, speed: this.mode.fall(this.level) };
     this.view.piece = this.piece;
     this.timer = 0;
+    this.nextGap = Math.max(1500, gap * 1000 * this.mode.pace * Math.pow(0.85, loop));
   }
 
   land() {
-    const { rows } = this.piece;
+    const { rows, solution } = this.piece;
     for (let r = rows.length - 1; r >= 0; r--) this.stack.push(rows[r]);
+    // Solution du bloc posé, en coordonnées du plateau (sert aux tests ; y 0 local = ligne au-dessus).
+    const topY = yOf(this.stack.length - 1);
+    this.lastLanded = solution ? solution.map(([x, y]) => [x, topY - 1 + y]) : null;
     this.piece = null;
     this.view.piece = null;
     this.refresh();
@@ -208,11 +212,12 @@ export class ChallengeMode {
       const k = full.length;
       this.chain++;
       this.maxChain = Math.max(this.maxChain, this.chain);
-      const points = linePoints(k) * this.chain * this.level;
+      // Lignes × niveau, plus un bonus de chaîne qui grandit à chaque bloc effacé à la suite.
+      const points = (linePoints(k) + 150 * (this.chain - 1)) * this.level;
       this.score += points;
       this.lines += k;
       this.ui.onLines(k, this.chain, points);
-      // Méga-combo : 8 lignes ou plus effacées d'un seul trait.
+      // Méga-combo : 6 lignes ou plus effacées d'un seul trait.
       if (k >= MEGA_LINES) { const bonus = 5000 * this.level; this.score += bonus; this.ui.onMega?.(k, bonus); }
       if (!this.stack.length) {
         this.score += 1000 * this.level;
@@ -260,9 +265,9 @@ export class ChallengeMode {
 
 // Note en lettre, à la manière du jeu d'origine (barème propre à CariFlip).
 const GRADES = [
-  [0, 'E-'], [800, 'E'], [2000, 'E+'], [4000, 'D-'], [6500, 'D'], [10000, 'D+'],
-  [14000, 'C-'], [19000, 'C'], [25000, 'C+'], [33000, 'B-'], [43000, 'B'], [55000, 'B+'],
-  [70000, 'A-'], [88000, 'A'], [110000, 'A+'], [140000, 'S'],
+  [0, 'E-'], [5000, 'E'], [12000, 'E+'], [25000, 'D-'], [40000, 'D'], [60000, 'D+'],
+  [85000, 'C-'], [115000, 'C'], [150000, 'C+'], [200000, 'B-'], [260000, 'B'], [330000, 'B+'],
+  [420000, 'A-'], [520000, 'A'], [650000, 'A+'], [800000, 'S'],
 ];
 export function gradeFor(score) {
   let g = GRADES[0][1];

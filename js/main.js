@@ -8,7 +8,7 @@ import { sfx, haptic, hapticsAvailable, silentOverrideAvailable, applyAudioSessi
 import { makeBoard, set, applyPath, isTile, at } from './board.js';
 import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange } from './i18n.js';
 
-export const VERSION = '1.5.0';
+export const VERSION = '1.7.0';
 const $ = (s) => document.querySelector(s);
 const megaEl = document.querySelector('#mega');
 
@@ -213,7 +213,7 @@ function renderLevels() {
   }
   const a = chapter * CHAPTER_SIZE + 1;
   const p = levelParams(a);
-  $('#chapter-caption').textContent = t('levels.caption', { w: p.W, h: p.H, holes: !!p.holes[1] });
+  $('#chapter-caption').textContent = p.stock ? t('levels.stock') : t('levels.caption', { w: p.W, h: p.H, holes: !!p.holes[1] });
   const next = highestSolved() + 1;
   for (let n = a; n < a + CHAPTER_SIZE && n <= LEVEL_COUNT; n++) grid.appendChild(levelButton(n, next));
 }

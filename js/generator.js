@@ -3,6 +3,7 @@
 // on trace un chemin aléatoire, on inverse les tuiles traversées. Le joueur doit retrouver
 // un tracé qui ramène toutes les lignes à une seule couleur ; le chemin d'origine en est un.
 import { mulberry32, seedForLevel } from './rng.js';
+import { STOCK } from './stock.js';
 import { BLACK, WHITE, FREE, HOLE, makeBoard, at, set, isTile, isTraversable,
          applyPath, dirtyRowCount, isValidPath, isSolved } from './board.js';
 
@@ -21,7 +22,13 @@ const TIERS = [
   { upTo: 200, W: 8, H: 9, flips: [22, 32], holes: [2, 5], minDirty: 8 },
 ];
 
+export const STOCK_COUNT = STOCK.length; // niveaux 1-100 : puzzles de Polarium ; 101-200 : générés
+
 export function levelParams(n) {
+  if (n >= 1 && n <= STOCK_COUNT) {
+    const rows = STOCK[n - 1][0].split('/');
+    return { W: rows[0].length - 2, H: rows.length - 2, flips: [0, 0], holes: [0, 0], minDirty: 0, stock: true };
+  }
   if (n === 201) return { W: 8, H: 8, flips: [0, 0], holes: [0, 0], minDirty: 0 };
   return TIERS.find((t) => n <= t.upTo) || TIERS[TIERS.length - 1];
 }
@@ -113,10 +120,21 @@ function caribouLevel() {
   return { n: SECRET_LEVEL, board, solution: CARIBOU_SOLUTION.map(([x, y]) => [x, y]), secret: true };
 }
 
+function stockLevel(n) {
+  const [grid, flat] = STOCK[n - 1];
+  const rows = grid.split('/');
+  const board = makeBoard(rows[0].length, rows.length, FREE);
+  rows.forEach((r, y) => [...r].forEach((c, x) => set(board, x, y, c === '#' ? BLACK : c === '.' ? WHITE : FREE)));
+  const solution = [];
+  for (let i = 0; i < flat.length; i += 2) solution.push([flat[i], flat[i + 1]]);
+  return { n, board, solution, stock: true };
+}
+
 const cache = new Map();
 export function generateLevel(n) {
   if (cache.has(n)) return cache.get(n);
   if (n === SECRET_LEVEL) { const l = caribouLevel(); cache.set(n, l); return l; }
+  if (n >= 1 && n <= STOCK_COUNT) { const l = stockLevel(n); cache.set(n, l); return l; }
   const rng = mulberry32(seedForLevel(n));
   const res = generatePuzzle(rng, levelParams(n));
   const lvl = { n, ...res };
