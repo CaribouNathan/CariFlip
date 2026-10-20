@@ -372,3 +372,66 @@ html, body, #app, .screen { overflow-x: clip; }
 .chap-bar i { display: block; height: 100%; background: var(--stroke); border-radius: 3px; }
 .chap-row .chap-name { width: 84px; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .chap-row .stat-val { margin-left: 0; padding-left: 0; min-width: 52px; text-align: right; }
+
+/* ---------- v1.9 : profils, synchro, Puzzle du jour, contre-la-montre ---------- */
+#home .scroll { position: relative; }
+.profile-chip {
+  display: flex; align-items: center; gap: 8px; margin: 4px 0 0 auto; width: max-content; max-width: 70%;
+  padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--card); font-weight: 600; font-size: 15px;
+}
+.profile-chip .chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-chip .chev { font-size: 13px; }
+#home .hero { padding-top: 8px; }
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: var(--av, var(--fill)); font-size: 19px; line-height: 1;
+}
+.avatar.big { width: 72px; height: 72px; font-size: 42px; margin: 0 auto 4px; }
+.hero.compact { padding-block: 24px 16px; }
+.hero.compact .logo { width: 72px; height: 72px; border-radius: 16px; }
+.hero.compact h1 { font-size: 32px; }
+
+.profile-form { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.text-input {
+  width: 100%; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 10px;
+  border: none; background: var(--fill); color: var(--label); outline: none;
+}
+.text-input:focus { box-shadow: 0 0 0 2px var(--accent); }
+.code-input { text-align: center; font: 700 20px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; margin-bottom: 10px; }
+.avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; margin-top: 14px; }
+.avatar-grid button { aspect-ratio: 1; border-radius: 50%; font-size: 24px; display: grid; place-items: center; background: var(--av); opacity: 0.55; transition: transform 0.12s, opacity 0.12s; }
+.avatar-grid button[aria-checked="true"] { opacity: 1; transform: scale(1.08); box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--accent); }
+.btn.wide { display: block; width: 100%; min-width: 0; margin: 0 auto 12px; }
+.btn.danger { background: transparent; color: var(--danger); }
+.btn:disabled { opacity: 0.4; }
+.join-box { text-align: center; margin-top: 8px; }
+.link-btn { color: var(--accent); font-size: 15px; font-weight: 600; padding: 10px; }
+.form-error { color: var(--danger); font-size: 14px; text-align: center; margin: 4px 0 0; }
+.code-text { font: 700 18px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.06em; }
+.row .stat-val { margin-left: auto; padding-left: 12px; }
+.profile-row .avatar { width: 36px; height: 36px; font-size: 21px; }
+.profile-row .edit-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--accent); font-size: 18px; flex: none; }
+.profile-row .edit-btn:active { background: var(--fill); }
+.profile-row .current-mark { color: var(--accent); font-size: 18px; }
+.row + .profile-row::before, .profile-row + .row::before { left: 66px; }
+#sync-icon { --c: var(--gray); }
+#sync-icon.ok { --c: var(--success); }
+#sync-icon.err { --c: var(--danger); }
+#sync-icon.busy svg { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.35; } }
+
+/* Médaille du trait optimal (grille des niveaux) */
+.level .medal { position: absolute; left: 4px; top: 4px; width: 14px; height: 14px; color: var(--stroke); }
+
+/* Contre-la-montre */
+#rush .navbar { min-height: 44px; }
+#rush .stage { margin: 4px 2px; }
+#rush-time { font-size: 30px; }
+#rush-time.low { color: var(--danger); }
+#rush .bottombar { justify-content: space-between; }
+.pill-btn.danger-text { color: var(--danger); }
+.sheet .medal-line { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--stroke); font-weight: 600; margin-top: -8px; }
+.sheet .medal-line svg { font-size: 20px; }
+.sheet .medal-line.muted { color: var(--secondary); font-weight: 400; }
+.sheet .code-input { margin: -6px 0 12px; }
+.stats-profile { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; margin: 0 auto 12px; }

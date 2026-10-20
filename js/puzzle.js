@@ -9,7 +9,7 @@ export const MAX_HINTS = 3;
 export class PuzzleMode {
   constructor(view, ui) {
     this.view = view;
-    this.ui = ui; // { onWin(n, hints), onStatus(text, tone), onDirty(count), onShake() }
+    this.ui = ui; // { onWin(n, hints, flips, level), onStatus(text, tone), onDirty(count), onShake() }
     this.level = null;
     this.board = null;
     this.hints = 0;
@@ -19,9 +19,10 @@ export class PuzzleMode {
   later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
   clearTimers() { this.timers.forEach(clearTimeout); this.timers = []; }
 
+  // n : numéro de niveau, ou niveau déjà construit (Puzzle du jour, contre-la-montre).
   load(n) {
     this.clearTimers();
-    this.level = generateLevel(n);
+    this.level = typeof n === 'object' ? n : generateLevel(n);
     this.board = cloneBoard(this.level.board);
     this.hints = 0;
     const v = this.view;
@@ -51,6 +52,7 @@ export class PuzzleMode {
     // Un tracé qui ne touche aucune tuile (cadre seul) est ignoré.
     if (!path.some(([x, y]) => isTile(at(this.board, x, y)))) return;
     v.enabled = false;
+    const flips = path.filter(([x, y]) => isTile(at(this.board, x, y))).length;
     const next = applyPath(this.board, path);
     v.board = next;
     const dur = v.animateFlips(path, next);
@@ -63,7 +65,7 @@ export class PuzzleMode {
         sfx.win(); haptic(30);
         this.ui.onDirty(0);
         this.later(() => v.animateClear(rows, 420), 260);
-        this.later(() => this.ui.onWin(this.level.n, this.hints), 760);
+        this.later(() => this.ui.onWin(this.level.n, this.hints, flips, this.level), this.ui.winDelay ?? 760);
         return;
       }
       // Échec : on montre les lignes encore mixtes puis on remet la grille d'origine.

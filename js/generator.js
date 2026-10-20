@@ -148,3 +148,41 @@ export function checkLevel(lvl) {
     && isSolved(applyPath(lvl.board, lvl.solution))
     && !isSolved(lvl.board);
 }
+
+// ---------- Puzzle du jour ----------
+// Même grille pour tout le monde à une date donnée ; difficulté croissante du lundi au dimanche.
+const DAILY = [
+  { W: 8, H: 8, flips: [20, 28], holes: [2, 4], minDirty: 7 }, // dimanche
+  { W: 5, H: 5, flips: [7, 11], holes: [0, 0], minDirty: 4 },  // lundi
+  { W: 5, H: 6, flips: [9, 13], holes: [0, 1], minDirty: 4 },
+  { W: 6, H: 6, flips: [10, 15], holes: [0, 2], minDirty: 5 },
+  { W: 6, H: 7, flips: [13, 19], holes: [1, 3], minDirty: 6 },
+  { W: 7, H: 7, flips: [15, 22], holes: [1, 3], minDirty: 6 },
+  { W: 7, H: 8, flips: [17, 25], holes: [2, 4], minDirty: 7 }, // samedi
+];
+const hashStr = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
+export function dailyParams(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return DAILY[new Date(y, m - 1, d).getDay()];
+}
+export function dailyLevel(key) {
+  if (cache.has('d' + key)) return cache.get('d' + key);
+  const p = dailyParams(key);
+  const lvl = { n: 'daily', key, daily: true, ...generatePuzzle(mulberry32(hashStr('cariflip-daily-' + key)), p) };
+  cache.set('d' + key, lvl);
+  return lvl;
+}
+
+// ---------- Contre-la-montre ----------
+// La taille grandit avec le nombre de grilles déjà résolues dans la partie.
+const RUSH = [
+  { upTo: 2, W: 4, H: 3, flips: [3, 5], holes: [0, 0], minDirty: 2 },
+  { upTo: 5, W: 4, H: 4, flips: [5, 8], holes: [0, 0], minDirty: 3 },
+  { upTo: 9, W: 5, H: 5, flips: [7, 11], holes: [0, 0], minDirty: 4 },
+  { upTo: 14, W: 6, H: 6, flips: [10, 15], holes: [0, 2], minDirty: 5 },
+  { upTo: Infinity, W: 6, H: 7, flips: [13, 19], holes: [1, 3], minDirty: 6 },
+];
+export const rushParams = (k) => RUSH.find((t) => k <= t.upTo);
+export function rushLevel(k, seed) {
+  return { n: 'rush', rush: true, ...generatePuzzle(mulberry32(seed), rushParams(k)) };
+}

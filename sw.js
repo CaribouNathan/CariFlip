@@ -1,10 +1,11 @@
 // Service worker : met tout le jeu en cache pour qu'il fonctionne hors ligne.
 // À chaque nouvelle version publiée, incrémenter CACHE pour forcer la mise à jour.
-const CACHE = 'cariflip-1.8.1';
+const CACHE = 'cariflip-1.9.0';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/main.js', 'js/renderer.js', 'js/board.js', 'js/generator.js', 'js/rng.js',
   'js/puzzle.js', 'js/challenge.js', 'js/pieces.js', 'js/solver.js', 'js/start.js', 'js/sequence.js', 'js/stock.js', 'js/i18n.js', 'js/storage.js', 'js/audio.js',
+  'js/sync.js', 'js/config.js', 'js/optimal.js', 'js/optimal-data.js', 'js/solve-board.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
   'icons/maskable-512.png', 'icons/apple-touch-icon.png',
   'manifest-halloween.webmanifest', 'manifest-christmas.webmanifest',
