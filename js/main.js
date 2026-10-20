@@ -2,14 +2,27 @@
 import { BoardView } from './renderer.js';
 import { PuzzleMode, MAX_HINTS } from './puzzle.js';
 import { ChallengeMode, MODES, gradeFor } from './challenge.js';
-import { LEVEL_COUNT, CHAPTER_SIZE, levelParams } from './generator.js';
-import { store, save, markSolved, isSolvedLevel, isUnlocked, solvedCount, highestSolved, addRecord } from './storage.js';
+import { LEVEL_COUNT, CHAPTER_SIZE, levelParams, SECRET_LEVEL } from './generator.js';
+import { store, save, markSolved, isSolvedLevel, isUnlocked, solvedCount, highestSolved, addRecord, secretUnlocked, bumpStat, maxStat } from './storage.js';
 import { sfx, haptic, hapticsAvailable, silentOverrideAvailable, applyAudioSession, IS_IOS } from './audio.js';
-import { makeBoard, set, applyPath } from './board.js';
+import { makeBoard, set, applyPath, isTile, at } from './board.js';
 import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange } from './i18n.js';
 
-export const VERSION = '1.4.4';
+export const VERSION = '1.5.0';
 const $ = (s) => document.querySelector(s);
+const megaEl = document.querySelector('#mega');
+
+// ---------- Fêtes : couleurs des tuiles le 31 octobre et le 25 décembre ----------
+// (?season=halloween|christmas dans l'adresse pour tester un autre jour)
+function seasonFor(d = new Date()) {
+  const forced = new URLSearchParams(location.search).get('season');
+  if (forced === 'halloween' || forced === 'christmas') return forced;
+  if (d.getMonth() === 9 && d.getDate() === 31) return 'halloween';
+  if (d.getMonth() === 11 && d.getDate() === 25) return 'christmas';
+  return null;
+}
+const season = seasonFor();
+if (season) document.documentElement.classList.add('season-' + season);
 const fmt = (n) => fmtNum(n);
 
 // ---------- Navigation ----------
@@ -20,6 +33,10 @@ const current = () => stack[stack.length - 1];
 
 function show(id) {
   for (const s of screens) $('#' + s).hidden = s !== id;
+  if (typeof syncUpdateBar === 'function') queueMicrotask(syncUpdateBar);
+  // Garde-fou : aucun décalage horizontal résiduel d'un écran à l'autre.
+  window.scrollTo(0, 0);
+  document.documentElement.scrollLeft = 0; document.body.scrollLeft = 0; $('#app').scrollLeft = 0;
 }
 function go(id, arg) {
   hooks[current()]?.leave?.();
@@ -48,11 +65,11 @@ document.addEventListener('click', (e) => {
 
 // ---------- Fenêtre modale ----------
 const sheet = $('#sheet');
-function openSheet({ badge = '', badgeClass = '', title, body = '', actions, locked = false }) {
+function openSheet({ badge = '', badgeClass = '', title, body = '', html = '', actions, locked = false }) {
   $('#sheet-badge').innerHTML = badge;
   $('#sheet-badge').className = 'sheet-badge' + (badgeClass ? ' ' + badgeClass : '');
   $('#sheet-title').textContent = title;
-  $('#sheet-body').textContent = body;
+  if (html) $('#sheet-body').innerHTML = html; else $('#sheet-body').textContent = body;
   const box = $('#sheet-actions');
   box.innerHTML = '';
   actions.forEach(({ label, primary, run }) => {
@@ -131,53 +148,74 @@ if (IS_IOS && (matchMedia('(display-mode: standalone)').matches || navigator.sta
 let chapter = Math.floor((Math.max(1, store.lastLevel) - 1) / CHAPTER_SIZE);
 const chapterCount = Math.ceil(LEVEL_COUNT / CHAPTER_SIZE);
 
+const SECRET_CHAPTER = chapterCount; // onglet « ★ 201 », présent seulement une fois débloqué
 function renderChapters() {
   const box = $('#chapters');
   box.innerHTML = '';
-  for (let c = 0; c < chapterCount; c++) {
-    const a = c * CHAPTER_SIZE + 1, z = Math.min(LEVEL_COUNT, a + CHAPTER_SIZE - 1);
-    let done = 0;
-    for (let n = a; n <= z; n++) if (isSolvedLevel(n)) done++;
+  const tabs = chapterCount + (secretUnlocked() ? 1 : 0);
+  if (chapter >= tabs) chapter = chapterCount - 1;
+  for (let c = 0; c < tabs; c++) {
     const b = document.createElement('button');
     b.className = 'chapter';
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(c === chapter));
-    b.innerHTML = `${a}–${z}${done ? `<span class="done">${done}/${z - a + 1}</span>` : ''}`;
+    if (c === SECRET_CHAPTER) {
+      b.classList.add('secret');
+      b.textContent = t('secret.chapter');
+    } else {
+      const a = c * CHAPTER_SIZE + 1, z = Math.min(LEVEL_COUNT, a + CHAPTER_SIZE - 1);
+      let done = 0;
+      for (let n = a; n <= z; n++) if (isSolvedLevel(n)) done++;
+      b.innerHTML = `${a}–${z}${done ? `<span class="done">${done}/${z - a + 1}</span>` : ''}`;
+    }
     b.addEventListener('click', () => { chapter = c; renderLevels(); });
     box.appendChild(b);
   }
-  box.children[chapter]?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  // Centre l'onglet du chapitre en ne faisant défiler QUE la barre d'onglets.
+  // (scrollIntoView fait aussi défiler les conteneurs parents ; sur iOS cela décalait tout l'écran.)
+  const tab = box.children[chapter];
+  if (tab) {
+    const left = tab.getBoundingClientRect().left - box.getBoundingClientRect().left + box.scrollLeft;
+    box.scrollLeft = Math.max(0, left - (box.clientWidth - tab.offsetWidth) / 2);
+  }
+}
+
+function levelButton(n, next) {
+  const b = document.createElement('button');
+  b.className = 'level';
+  const solved = store.solved[n];
+  if (!isUnlocked(n)) {
+    b.disabled = true;
+    b.innerHTML = '<svg><use href="#i-lock"/></svg>';
+    b.setAttribute('aria-label', t('levels.locked', { n }));
+    return b;
+  }
+  b.innerHTML = `<span>${n}</span>`;
+  if (solved) {
+    b.classList.add('solved');
+    if (solved.hints === 0) b.classList.add('perfect');
+    b.innerHTML += `<svg class="mark"><use href="#i-${solved.hints === 0 ? 'star' : 'check'}"/></svg>`;
+  }
+  if (n === next) b.classList.add('current');
+  b.setAttribute('aria-label', t('levels.item', { n, solved: !!solved }));
+  b.addEventListener('click', () => go('game', n));
+  return b;
 }
 
 function renderLevels() {
   renderChapters();
+  const grid = $('#level-grid');
+  grid.innerHTML = '';
+  if (chapter === SECRET_CHAPTER) {
+    $('#chapter-caption').textContent = t('secret.caption');
+    grid.appendChild(levelButton(SECRET_LEVEL, store.solved[SECRET_LEVEL] ? 0 : SECRET_LEVEL));
+    return;
+  }
   const a = chapter * CHAPTER_SIZE + 1;
   const p = levelParams(a);
   $('#chapter-caption').textContent = t('levels.caption', { w: p.W, h: p.H, holes: !!p.holes[1] });
-  const grid = $('#level-grid');
-  grid.innerHTML = '';
   const next = highestSolved() + 1;
-  for (let n = a; n < a + CHAPTER_SIZE && n <= LEVEL_COUNT; n++) {
-    const b = document.createElement('button');
-    b.className = 'level';
-    const solved = store.solved[n];
-    if (!isUnlocked(n)) {
-      b.disabled = true;
-      b.innerHTML = '<svg><use href="#i-lock"/></svg>';
-      b.setAttribute('aria-label', t('levels.locked', { n }));
-    } else {
-      b.innerHTML = `<span>${n}</span>`;
-      if (solved) {
-        b.classList.add('solved');
-        if (solved.hints === 0) b.classList.add('perfect');
-        b.innerHTML += `<svg class="mark"><use href="#i-${solved.hints === 0 ? 'star' : 'check'}"/></svg>`;
-      }
-      if (n === next) b.classList.add('current');
-      b.setAttribute('aria-label', t('levels.item', { n, solved: !!solved }));
-      b.addEventListener('click', () => go('game', n));
-    }
-    grid.appendChild(b);
-  }
+  for (let n = a; n < a + CHAPTER_SIZE && n <= LEVEL_COUNT; n++) grid.appendChild(levelButton(n, next));
 }
 hooks.levels = {
   enter: (fromHome) => {
@@ -192,7 +230,7 @@ const puzzleView = new BoardView($('#puzzle-canvas'), {
   onStep: (len, cell, backward) => { backward ? sfx.back() : sfx.step(len); haptic(5); },
   onStart: () => $('#game').classList.add('drawing'),
   onEnd: () => $('#game').classList.remove('drawing'),
-  onCommit: (path) => puzzle.commit(path),
+  onCommit: (path) => { countStroke(puzzleView, path); puzzle.commit(path); },
 });
 const statusEl = $('#game-status');
 const puzzle = new PuzzleMode(puzzleView, {
@@ -208,15 +246,23 @@ const puzzle = new PuzzleMode(puzzleView, {
   },
   onWin: (n, hints) => {
     markSolved(n, hints);
-    const last = n >= LEVEL_COUNT;
+    const hasNext = n < LEVEL_COUNT || (n === LEVEL_COUNT && isUnlocked(SECRET_LEVEL));
     const actions = [];
-    if (!last) actions.push({ label: t('game.next'), primary: true, run: () => loadLevel(n + 1) });
+    if (hasNext) actions.push({ label: t('game.next'), primary: true, run: () => loadLevel(n + 1) });
     actions.push({ label: t('game.replay'), run: () => loadLevel(n) });
     actions.push({ label: t('game.list'), run: () => history.back() });
+    if (n === SECRET_LEVEL) {
+      sfx.mega();
+      openSheet({
+        badge: '<img src="icons/icon.svg" alt="" width="64" height="64" style="border-radius:14px">',
+        title: t('secret.winTitle'), body: t('secret.winBody'), actions, locked: true,
+      });
+      return;
+    }
     openSheet({
       badge: `<svg style="color:var(--${hints ? 'success' : 'stroke'})"><use href="#i-${hints ? 'check' : 'star'}"/></svg>`,
       title: t('game.winTitle', { n }),
-      body: last ? t('game.winAll') : hints ? t('game.winHints', { n: hints }) : t('game.winStar'),
+      body: n === LEVEL_COUNT && !hasNext ? t('game.winAll') : hints ? t('game.winHints', { n: hints }) : t('game.winStar'),
       actions, locked: true,
     });
   },
@@ -231,8 +277,8 @@ function loadLevel(n) {
   const prev = $('#prev-level'), next = $('#next-level');
   prev.disabled = n <= 1;
   prev.querySelector('span').textContent = n > 1 ? n - 1 : '';
-  next.disabled = n >= LEVEL_COUNT || !isUnlocked(n + 1);
-  next.querySelector('span').textContent = n < LEVEL_COUNT ? n + 1 : '';
+  next.disabled = n >= SECRET_LEVEL || !isUnlocked(n + 1);
+  next.querySelector('span').textContent = n < SECRET_LEVEL && isUnlocked(n + 1) ? n + 1 : '';
   puzzle.load(n);
   refreshHint();
 }
@@ -247,7 +293,7 @@ $('#prev-level').addEventListener('click', () => loadLevel(currentLevel - 1));
 $('#next-level').addEventListener('click', () => loadLevel(currentLevel + 1));
 hooks.game = {
   enter: (n) => { if (n) loadLevel(n); else loadLevel(currentLevel); puzzleView.start(); },
-  leave: () => { puzzle.leave(); puzzleView.stop(); chapter = Math.floor((currentLevel - 1) / CHAPTER_SIZE); },
+  leave: () => { puzzle.leave(); puzzleView.stop(); chapter = currentLevel === SECRET_LEVEL ? SECRET_CHAPTER : Math.floor((currentLevel - 1) / CHAPTER_SIZE); },
 };
 
 // ---------- Challenge ----------
@@ -255,10 +301,11 @@ const challengeView = new BoardView($('#challenge-canvas'), {
   onStep: (len, cell, backward) => { backward ? sfx.back() : sfx.step(len); haptic(5); },
   onStart: () => $('#challenge').classList.add('drawing'),
   onEnd: () => $('#challenge').classList.remove('drawing'),
-  onCommit: (path) => challenge.commit(path),
+  onCommit: (path) => { countStroke(challengeView, path); challenge.commit(path); },
 });
 const bonusEl = $('#bonus');
 function popBonus(main, sub = '') {
+  if (!megaEl.hidden) return; // le méga-combo a la priorité à l'écran
   bonusEl.querySelector('.bonus-main').textContent = main;
   bonusEl.querySelector('.bonus-sub').textContent = sub;
   bonusEl.classList.remove('show'); void bonusEl.offsetWidth; bonusEl.classList.add('show');
@@ -275,7 +322,9 @@ const challenge = new ChallengeMode(challengeView, {
     countdownEl.className = 'countdown' + (label === 'go' ? ' go' : '');
     countdownEl.innerHTML = label ? `<span>${label === 'go' ? t('ch.go') : label}</span>` : '';
   },
+  onMega: (k, bonus) => { bumpStat('megas'); showMega(k, bonus); },
   onLines: (k, chain, points) => {
+    bumpStat('lines', k); maxStat('bestChain', chain);
     popBonus(`${t('ch.lines', { n: k })}  +${fmt(points)}`, chain > 1 ? t('ch.chain', { n: chain }) : '');
   },
   onBonus: (text) => popBonus(text),
@@ -303,6 +352,7 @@ const challenge = new ChallengeMode(challengeView, {
 let challengeMode = 'challenge';
 function startChallenge(mode = challengeMode) {
   challengeMode = mode;
+  if (mode === 'challenge') bumpStat('games');
   challenge.start(mode);
   challengeView.start();
 }
@@ -354,6 +404,78 @@ function renderRecords() {
 hooks.cmenu = { enter: renderRecords };
 $('#start-challenge').addEventListener('click', () => go('challenge', 'challenge'));
 $('#start-practice').addEventListener('click', () => go('challenge', 'practice'));
+
+
+// ---------- Statistiques ----------
+function countStroke(view, path) {
+  const n = path.filter(([x, y]) => isTile(at(view.board, x, y))).length;
+  if (!n) return;
+  bumpStat('strokes'); bumpStat('flips', n);
+}
+
+// ---------- Méga-combo ----------
+let megaTimer = 0;
+function showMega(k, bonus) {
+  sfx.mega(); haptic(80);
+  $('#mega-sub').textContent = t('mega.sub', { n: k, s: fmt(bonus) });
+  megaEl.querySelectorAll('.confetti').forEach((c) => c.remove());
+  const css = getComputedStyle(document.documentElement);
+  const colors = [css.getPropertyValue('--tile-dark'), css.getPropertyValue('--tile-light'), css.getPropertyValue('--stroke')];
+  for (let i = 0; i < 36; i++) {
+    const c = document.createElement('i');
+    c.className = 'confetti';
+    const ang = Math.random() * Math.PI * 2, dist = 120 + Math.random() * 220;
+    c.style.setProperty('--dx', `${Math.cos(ang) * dist}px`);
+    c.style.setProperty('--dy', `${Math.sin(ang) * dist - 60}px`);
+    c.style.setProperty('--rot', `${(Math.random() - 0.5) * 720}deg`);
+    c.style.background = colors[i % 3].trim();
+    c.style.animationDelay = `${Math.random() * 120}ms`;
+    megaEl.appendChild(c);
+  }
+  bonusEl.classList.remove('show');
+  megaEl.hidden = true; void megaEl.offsetWidth; megaEl.hidden = false; // relance les animations
+  clearTimeout(megaTimer);
+  megaTimer = setTimeout(() => { megaEl.hidden = true; }, 2300);
+}
+
+// ---------- Easter eggs de l'accueil ----------
+// 7 appuis rapides sur le logo.
+let logoTaps = 0, logoTimer = 0;
+$('#logo').addEventListener('click', () => {
+  logoTaps++;
+  clearTimeout(logoTimer);
+  logoTimer = setTimeout(() => { logoTaps = 0; }, 1500);
+  if (logoTaps >= 7) {
+    logoTaps = 0;
+    haptic(30);
+    openSheet({ title: t('egg.brother'), actions: [{ label: t('egg.ok'), primary: true }] });
+  }
+});
+// Appui long sur le numéro de version : crédits et statistiques.
+let pressTimer = 0;
+const versionLine = $('#version-line');
+const cancelPress = () => clearTimeout(pressTimer);
+versionLine.addEventListener('pointerdown', () => {
+  cancelPress();
+  pressTimer = setTimeout(() => { haptic(20); showCredits(); }, 700);
+});
+['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => versionLine.addEventListener(ev, cancelPress));
+versionLine.addEventListener('contextmenu', (e) => e.preventDefault());
+function showCredits() {
+  const st = store.stats;
+  const stars = Object.values(store.solved).filter((v) => v.hints === 0).length;
+  const rows = [
+    ['stat.solved', solvedCount()], ['stat.stars', stars], ['stat.strokes', st.strokes], ['stat.flips', st.flips],
+    ['stat.games', st.games], ['stat.lines', st.lines], ['stat.bestChain', st.bestChain ? '×' + st.bestChain : 0],
+    ['stat.megas', st.megas],
+  ];
+  const html = `${t('credits.by')}</p><p class="stats-title">${t('credits.stats')}</p><ul class="stats">${
+    rows.map(([k, v]) => `<li><span>${t(k)}</span><span>${typeof v === 'number' ? fmt(v) : v}</span></li>`).join('')}</ul><p hidden>`;
+  openSheet({
+    badge: '<img src="icons/icon.svg" alt="" width="56" height="56" style="border-radius:13px">',
+    title: `${t('credits.title')} ${VERSION}`, html, actions: [{ label: t('egg.ok'), primary: true }],
+  });
+}
 
 // ---------- Comment jouer : petites démos animées ----------
 function demoBoard(rows) {
@@ -421,8 +543,42 @@ window.addEventListener('beforeinstallprompt', (e) => {
   hint.appendChild(b);
   hint.hidden = false;
 });
-if ('serviceWorker' in navigator && location.protocol === 'https:' || location.hostname === 'localhost') {
-  navigator.serviceWorker?.register('sw.js').catch(() => { /* hors PWA (aperçu) : sans effet */ });
+// ---------- Mise à jour ----------
+// Le service worker télécharge la nouvelle version en arrière-plan puis attend ; on propose
+// « Mettre à jour », jamais pendant une partie de Challenge en cours.
+const updateBar = $('#update-bar');
+let waitingWorker = null;
+function offerUpdate(worker) {
+  waitingWorker = worker;
+  syncUpdateBar();
+}
+function syncUpdateBar() {
+  const playing = current() === 'challenge' || current() === 'game';
+  updateBar.hidden = !waitingWorker || playing;
+}
+$('#update-btn').addEventListener('click', () => {
+  if (!waitingWorker) return;
+  $('#update-btn').disabled = true;
+  waitingWorker.postMessage('skip-waiting');
+});
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading || !hadController) return;
+    reloading = true;
+    location.reload();
+  });
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    const watch = (w) => w && w.addEventListener('statechange', () => {
+      if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w);
+    });
+    if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
+    watch(reg.installing);
+    reg.addEventListener('updatefound', () => watch(reg.installing));
+    // Vérifie aussi quand l'app revient au premier plan (iPhone : l'app reste ouverte des jours).
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => { /* hors PWA (aperçu) : sans effet */ });
 }
 
 // Langue : textes fixes, puis écran courant re-rendu quand la langue change.
@@ -444,4 +600,4 @@ show('home');
 refreshHome();
 
 // Accès de diagnostic (console / tests automatisés), sans effet sur le jeu.
-window.cariflipDebug = { challenge, puzzle, puzzleView, challengeView };
+window.cariflipDebug = { challenge, puzzle, puzzleView, challengeView, showMega, offerUpdate, showCredits };

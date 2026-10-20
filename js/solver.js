@@ -10,15 +10,17 @@
 const COLS = 8, W = COLS + 2;
 const DX = [1, -1, 0, 0], DY = [0, 0, 1, -1];
 
-export function solveFullClear(rows, { budgetMs = 150, rnd = Math.random } = {}) {
-  const R = rows.length, H = R + 1, N = W * H;
+export function solveFullClear(rows, { budgetMs = 150, rnd = Math.random, topFrame = false } = {}) {
+  // topFrame : ligne de cadre aussi en haut (grilles du mode Puzzle). Les lignes sont alors décalées de 1.
+  const T = topFrame ? 1 : 0;
+  const R = rows.length, H = R + 1 + T, N = W * H;
   const t0 = performance.now();
   const isFrame = new Uint8Array(N);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x === 0 || x === W - 1 || y === R) isFrame[y * W + x] = 1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x === 0 || x === W - 1 || y === R + T || y < T) isFrame[y * W + x] = 1;
   // Options par ligne : [cases si on inverse les noires, cases si on inverse les blanches].
   const opts = rows.map((row, y) => {
     const b = [], w = [];
-    row.forEach((c, i) => (c === 'B' ? b : w).push(y * W + i + 1));
+    row.forEach((c, i) => (c === 'B' ? b : w).push((y + T) * W + i + 1));
     return [b, w];
   });
   if (opts.some(([b, w]) => !b.length || !w.length)) return null; // ligne déjà unie : hors sujet ici

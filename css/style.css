@@ -314,3 +314,47 @@ html, body { overflow: hidden; }
 
 /* v1.4.3 — iPhone en mode app : marge sous la barre d'état, hors de la bande floutée par iOS 26 */
 .ios-standalone .screen { padding-top: calc(env(safe-area-inset-top, 0px) + 26px); }
+
+/* v1.4.5 — rien ne peut décaler l'écran horizontalement */
+html, body, #app, .screen { overflow-x: clip; }
+.screen > * { min-width: 0; max-width: 100%; }
+.chapters { overscroll-behavior-x: contain; }
+
+/* v1.5 — Fêtes : seules les couleurs des tuiles changent (le jeu reste noir/blanc en logique) */
+:root.season-halloween { --tile-dark: #0B0B0C; --tile-light: #FF7A1A; --tile-light-edge: rgba(0, 0, 0, 0.12); }
+:root.season-christmas { --tile-dark: #0E7A3E; --tile-light: #D7263D; --tile-light-edge: rgba(0, 0, 0, 0.12); }
+:root.season-halloween .level.solved, :root.season-christmas .level.solved { color: #fff; }
+
+/* Méga-combo */
+.mega { position: absolute; inset: 0; pointer-events: none; display: grid; place-items: center; overflow: hidden; z-index: 5; }
+.mega::before { content: ""; position: absolute; inset: 0; background: var(--stroke); opacity: 0; animation: mega-flash 0.9s ease-out; }
+@keyframes mega-flash { 0% { opacity: 0.55; } 100% { opacity: 0; } }
+.mega-text { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; animation: mega-pop 2.2s cubic-bezier(.2, .9, .3, 1.2) forwards; }
+.mega-title { font: 900 52px/1 var(--font-round); letter-spacing: 0.02em; color: var(--stroke); text-shadow: 0 3px 0 var(--tile-dark), 0 0 24px var(--bg); }
+.mega-sub { font: 700 17px/1.2 var(--font-round); color: var(--label); text-shadow: 0 1px 8px var(--bg); font-variant-numeric: tabular-nums; }
+@keyframes mega-pop { 0% { transform: scale(0.3) rotate(-8deg); opacity: 0; } 18% { transform: scale(1.15) rotate(2deg); opacity: 1; } 30% { transform: scale(1) rotate(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(1.05) translateY(-20px); } }
+.confetti { position: absolute; left: 50%; top: 55%; width: 14px; height: 14px; border-radius: 3px;
+  animation: confetti 1.6s cubic-bezier(.15, .7, .4, 1) forwards; }
+@keyframes confetti {
+  0% { transform: translate(-50%, -50%) rotate(0); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity: 0; }
+}
+
+/* Bandeau de mise à jour */
+.update-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 15;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--card); border-top: 0.5px solid var(--sep); box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.12);
+  font-size: 15px; font-weight: 600; animation: fade 0.25s;
+}
+.btn.small { min-width: 0; padding: 8px 16px; font-size: 15px; border-radius: 10px; }
+.version-line { cursor: default; -webkit-touch-callout: none; }
+.sheet .stats { list-style: none; padding: 0; margin: 0 0 16px; text-align: left; font-size: 14px; }
+.sheet .stats li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 2px; border-bottom: 0.5px solid var(--sep); }
+.sheet .stats li span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+.sheet .stats-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--secondary); text-align: left; margin: 0 0 4px; }
+.chapter.secret { background: var(--stroke); color: #fff; }
+.chapter.secret[aria-selected="true"] { background: var(--label); color: var(--bg); }
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }

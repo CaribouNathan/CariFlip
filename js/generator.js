@@ -22,6 +22,7 @@ const TIERS = [
 ];
 
 export function levelParams(n) {
+  if (n === 201) return { W: 8, H: 8, flips: [0, 0], holes: [0, 0], minDirty: 0 };
   return TIERS.find((t) => n <= t.upTo) || TIERS[TIERS.length - 1];
 }
 
@@ -102,9 +103,20 @@ export function generatePuzzle(rng, p) {
   return best;
 }
 
+// Niveau secret 201 : un caribou en pixel-art, solution vérifiée par le solveur (js/solver.js).
+export const SECRET_LEVEL = 201;
+const CARIBOU = ['#..##..#', '#.#..#.#', '.##..##.', '...##...', '..####..', '.######.', '..####..', '...##...'];
+const CARIBOU_SOLUTION = [[2, 2], [2, 3], [3, 3], [3, 4], [2, 4], [1, 4], [1, 5], [2, 5], [2, 6], [3, 6], [3, 7], [4, 7], [4, 6], [5, 6], [5, 7], [6, 7], [6, 6], [7, 6], [7, 5], [8, 5], [9, 5], [9, 6], [9, 7], [9, 8], [9, 9], [8, 9], [7, 9], [6, 9], [5, 9], [5, 8], [4, 8], [4, 9], [3, 9], [2, 9], [1, 9], [0, 9], [0, 8], [0, 7], [0, 6], [0, 5], [0, 4], [0, 3], [0, 2], [0, 1], [1, 1], [1, 0], [2, 0], [3, 0], [4, 0], [4, 1], [4, 2], [5, 2], [5, 1], [5, 0], [6, 0], [7, 0], [8, 0], [8, 1], [9, 1], [9, 2], [9, 3], [9, 4], [8, 4], [7, 4], [6, 4], [6, 3], [7, 3], [7, 2]];
+function caribouLevel() {
+  const board = makeBoard(CARIBOU[0].length + 2, CARIBOU.length + 2, FREE);
+  CARIBOU.forEach((r, y) => [...r].forEach((c, x) => set(board, x + 1, y + 1, c === '#' ? BLACK : WHITE)));
+  return { n: SECRET_LEVEL, board, solution: CARIBOU_SOLUTION.map(([x, y]) => [x, y]), secret: true };
+}
+
 const cache = new Map();
 export function generateLevel(n) {
   if (cache.has(n)) return cache.get(n);
+  if (n === SECRET_LEVEL) { const l = caribouLevel(); cache.set(n, l); return l; }
   const rng = mulberry32(seedForLevel(n));
   const res = generatePuzzle(rng, levelParams(n));
   const lvl = { n, ...res };

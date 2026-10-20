@@ -44,7 +44,7 @@
   <section class="screen" id="home">
     <div class="scroll">
       <header class="hero">
-        <img class="logo" src="icons/icon.svg" alt="" width="88" height="88">
+        <img class="logo" id="logo" src="icons/icon.svg" alt="" width="88" height="88" draggable="false">
         <h1>CariFlip</h1>
         <p class="tagline" data-i18n="home.tagline"></p>
       </header>
@@ -76,7 +76,7 @@
       </div>
 
       <p class="footnote" id="install-hint" hidden></p>
-      <p class="footnote">Caribou Labs · v<span id="version"></span></p>
+      <p class="footnote version-line" id="version-line">Caribou Labs · v<span id="version"></span></p>
     </div>
   </section>
 
@@ -199,6 +199,7 @@
       <canvas id="challenge-canvas"></canvas>
       <div class="countdown" id="countdown" aria-live="assertive"></div>
       <div class="bonus" id="bonus" aria-live="polite"><span class="bonus-main"></span><span class="bonus-sub"></span></div>
+      <div class="mega" id="mega" hidden><div class="mega-text"><span class="mega-title" data-i18n="mega.title"></span><span class="mega-sub" id="mega-sub"></span></div></div>
     </div>
     <div class="bottombar">
       <button class="cancel-btn" data-cancel data-i18n-aria="game.cancel"><svg><use href="#i-x"/></svg></button>
@@ -238,6 +239,12 @@
     <!-- Bouton toujours visible, même si le texte dépasse l'écran -->
     <div class="screen-footer"><button class="btn primary" data-back data-i18n="howto.ok"></button></div>
   </section>
+
+  <!-- Mise à jour disponible -->
+  <div class="update-bar" id="update-bar" hidden>
+    <span data-i18n="update.text"></span>
+    <button class="btn primary small" id="update-btn" data-i18n="update.btn"></button>
+  </div>
 
   <!-- Fenêtres -->
   <div class="sheet-backdrop" id="sheet" hidden>

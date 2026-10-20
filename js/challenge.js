@@ -11,6 +11,7 @@ export const COLS = PIECE_W;          // 8 colonnes de tuiles
 export const SPAWN = 1;               // ligne au-dessus de la limite (les blocs entrent par le haut)
 export const RESERVE = 7;             // réserve visible mais hors d'atteinte
 export const PLAY = 10;               // zone jouable
+export const MEGA_LINES = 8;          // seuil du méga-combo
 const W = COLS + 2;
 const H = SPAWN + RESERVE + PLAY + 1; // + ligne de cadre en bas
 const PLAY_TOP = SPAWN + RESERVE;
@@ -211,6 +212,8 @@ export class ChallengeMode {
       this.score += points;
       this.lines += k;
       this.ui.onLines(k, this.chain, points);
+      // Méga-combo : 8 lignes ou plus effacées d'un seul trait.
+      if (k >= MEGA_LINES) { const bonus = 5000 * this.level; this.score += bonus; this.ui.onMega?.(k, bonus); }
       if (!this.stack.length) {
         this.score += 1000 * this.level;
         this.ui.onBonus(t('ch.clear'));

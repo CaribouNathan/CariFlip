@@ -54,6 +54,10 @@ export const sfx = {
   win() { [0, 4, 7, 12, 16].forEach((s, i) => tone(523 * Math.pow(2, s / 12), { dur: 0.25, type: 'triangle', gain: 0.09, at: i * 0.08 })); },
   fail() { tone(220, { dur: 0.22, type: 'sawtooth', gain: 0.05, slide: 0.7 }); },
   push() { tone(140, { dur: 0.08, type: 'square', gain: 0.03 }); },
+  mega() {
+    [0, 4, 7, 12, 7, 12, 16, 19, 24].forEach((st, i) => tone(523 * Math.pow(2, st / 12), { dur: 0.22, type: 'square', gain: 0.05, at: i * 0.07 }));
+    [0, 7, 12].forEach((st) => tone(262 * Math.pow(2, st / 12), { dur: 0.9, type: 'triangle', gain: 0.06, at: 0.63 }));
+  },
   over() { [0, -3, -7].forEach((s, i) => tone(330 * Math.pow(2, s / 12), { dur: 0.3, type: 'sawtooth', gain: 0.05, at: i * 0.15 })); },
 };
 

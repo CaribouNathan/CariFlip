@@ -1,6 +1,6 @@
 // Service worker : met tout le jeu en cache pour qu'il fonctionne hors ligne.
 // À chaque nouvelle version publiée, incrémenter CACHE pour forcer la mise à jour.
-const CACHE = 'cariflip-1.4.4';
+const CACHE = 'cariflip-1.5.0';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/main.js', 'js/renderer.js', 'js/board.js', 'js/generator.js', 'js/rng.js',
@@ -10,7 +10,9 @@ const FILES = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // Pas de skipWaiting automatique : la page propose « Mettre à jour » et décide du moment.
+  // Première installation : rien ne tourne encore, la version s'active d'elle-même.
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
 });
 
 self.addEventListener('activate', (e) => {
@@ -27,4 +29,8 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true }).then((hit) => hit || fetch(e.request))
   );
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data === 'skip-waiting') self.skipWaiting();
 });

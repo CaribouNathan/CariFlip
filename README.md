@@ -2,7 +2,7 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.4.4**
+**Version 1.5.0**
 
 ## Règles
 
@@ -25,6 +25,14 @@ Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en 
 
 **Réglages** (accueil) : langue (Auto / Français / English), apparence (Auto / Clair / Sombre), sons, vibrations. *Auto* suit l'appareil : français si sa langue commence par « fr », anglais sinon ; thème clair ou sombre selon le système. Les textes sont dans `js/i18n.js` (mêmes clés pour les deux langues).
 
+## Easter eggs
+
+- **Méga-combo** : 8 lignes ou plus d'un seul trait en Challenge → « MEGA FLIP », confettis, jingle, +5 000 × niveau.
+- **Niveau 201** : caribou en pixel-art, débloqué quand les 200 niveaux sont résolus sans indice (onglet « ★ 201 »).
+- **31 octobre** : tuiles orange/noir. **25 décembre** : tuiles rouge/vert. Seules les couleurs changent. Test : ajouter `?season=halloween` ou `?season=christmas` à l'adresse.
+- **7 appuis sur le logo** de l'accueil : message secret.
+- **Appui long sur le numéro de version** : crédits et statistiques (traits, tuiles inversées, lignes, plus longue chaîne, méga-combos…).
+
 ## Tester sur le Mac
 
 Double-cliquer `serve.command`, puis ouvrir http://localhost:8080. Le service worker (hors ligne) ne s'active qu'en HTTPS ou sur `localhost`.
@@ -33,7 +41,7 @@ Double-cliquer `serve.command`, puis ouvrir http://localhost:8080. Le service wo
 
 1. Créer le dépôt `cariflip` sur le compte CaribouNathan et y pousser le contenu de ce dossier (racine du dépôt = ce dossier).
 2. Settings › Pages › Source : *Deploy from a branch*, branche `main`, dossier `/ (root)`.
-3. L'app est servie sur `https://caribounathan.github.io/CariFlip/`.
+3. L'app est servie sur `https://caribounathan.github.io/cariflip/`.
 
 Installation :
 - **iPhone / iPad** : ouvrir l'URL dans Safari › Partager › *Sur l'écran d'accueil*.
@@ -41,7 +49,7 @@ Installation :
 
 ## Mettre à jour
 
-Après toute modification, incrémenter `CACHE` dans `sw.js` (et `VERSION` dans `js/main.js`), sinon les appareils déjà installés gardent l'ancienne version en cache.
+Après toute modification, incrémenter `CACHE` dans `sw.js` (et `VERSION` dans `js/main.js`). Les appareils déjà installés téléchargent la nouvelle version en arrière-plan et affichent un bandeau « Nouvelle version disponible » avec un bouton « Mettre à jour » (jamais pendant une partie).
 
 ## Niveaux
 
