@@ -8,7 +8,7 @@ import { sfx, haptic, hapticsAvailable, silentOverrideAvailable, applyAudioSessi
 import { makeBoard, set, applyPath, isTile, at } from './board.js';
 import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange } from './i18n.js';
 
-export const VERSION = '1.7.0';
+export const VERSION = '1.8.0';
 const $ = (s) => document.querySelector(s);
 const megaEl = document.querySelector('#mega');
 
@@ -26,7 +26,7 @@ if (season) document.documentElement.classList.add('season-' + season);
 const fmt = (n) => fmtNum(n);
 
 // ---------- Navigation ----------
-const screens = ['home', 'settings', 'levels', 'game', 'cmenu', 'challenge', 'howto'];
+const screens = ['home', 'stats', 'settings', 'levels', 'game', 'cmenu', 'challenge', 'howto'];
 const stack = ['home'];
 const hooks = {};
 const current = () => stack[stack.length - 1];
@@ -288,7 +288,7 @@ function refreshHint() {
   $('#hint-badge').hidden = left <= 0;
   $('#hint-btn').disabled = left <= 0;
 }
-$('#hint-btn').addEventListener('click', () => { puzzle.hint(); refreshHint(); });
+$('#hint-btn').addEventListener('click', () => { const before = puzzle.hints; puzzle.hint(); if (puzzle.hints > before) bumpStat('hints'); refreshHint(); });
 $('#prev-level').addEventListener('click', () => loadLevel(currentLevel - 1));
 $('#next-level').addEventListener('click', () => loadLevel(currentLevel + 1));
 hooks.game = {
@@ -330,6 +330,7 @@ const challenge = new ChallengeMode(challengeView, {
   onBonus: (text) => popBonus(text),
   onGameOver: (r) => {
     const practice = !MODES[r.mode].records;
+    if (!practice) maxStat('bestLines', r.lines);
     const grade = gradeFor(r.score);
     let title = t('ch.over'), rank = -1;
     if (!practice) {
@@ -376,9 +377,16 @@ document.querySelectorAll('[data-cancel]').forEach((b) => {
   b.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     const view = current() === 'game' ? puzzleView : challengeView;
+    // Le ✕ disparaît dès l'annulation et le bouton du dessous (niveau précédent/suivant,
+    // « Faire tomber ») prendrait le clic du même appui : on avale ce clic.
+    swallowClicksUntil = performance.now() + 500;
     if (view.cancelDrawing()) { sfx.back(); haptic(15); }
   });
 });
+let swallowClicksUntil = 0;
+document.addEventListener('click', (e) => {
+  if (performance.now() < swallowClicksUntil && !e.target.closest('[data-cancel]')) { e.stopPropagation(); e.preventDefault(); }
+}, true);
 hooks.challenge = {
   enter: (mode) => startChallenge(mode || challengeMode),
   leave: () => { challenge.stop(); challengeView.stop(); countdownEl.innerHTML = ''; },
@@ -438,44 +446,79 @@ function showMega(k, bonus) {
   megaTimer = setTimeout(() => { megaEl.hidden = true; }, 2300);
 }
 
-// ---------- Easter eggs de l'accueil ----------
-// 7 appuis rapides sur le logo.
-let logoTaps = 0, logoTimer = 0;
-$('#logo').addEventListener('click', () => {
-  logoTaps++;
-  clearTimeout(logoTimer);
-  logoTimer = setTimeout(() => { logoTaps = 0; }, 1500);
-  if (logoTaps >= 7) {
-    logoTaps = 0;
-    haptic(30);
-    openSheet({ title: t('egg.brother'), actions: [{ label: t('egg.ok'), primary: true }] });
-  }
-});
-// Appui long sur le numéro de version : crédits et statistiques.
-let pressTimer = 0;
-const versionLine = $('#version-line');
-const cancelPress = () => clearTimeout(pressTimer);
-versionLine.addEventListener('pointerdown', () => {
-  cancelPress();
-  pressTimer = setTimeout(() => { haptic(20); showCredits(); }, 700);
-});
-['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => versionLine.addEventListener(ev, cancelPress));
-versionLine.addEventListener('contextmenu', (e) => e.preventDefault());
-function showCredits() {
-  const st = store.stats;
-  const stars = Object.values(store.solved).filter((v) => v.hints === 0).length;
-  const rows = [
-    ['stat.solved', solvedCount()], ['stat.stars', stars], ['stat.strokes', st.strokes], ['stat.flips', st.flips],
-    ['stat.games', st.games], ['stat.lines', st.lines], ['stat.bestChain', st.bestChain ? '×' + st.bestChain : 0],
-    ['stat.megas', st.megas],
-  ];
-  const html = `${t('credits.by')}</p><p class="stats-title">${t('credits.stats')}</p><ul class="stats">${
-    rows.map(([k, v]) => `<li><span>${t(k)}</span><span>${typeof v === 'number' ? fmt(v) : v}</span></li>`).join('')}</ul><p hidden>`;
-  openSheet({
-    badge: '<img src="icons/icon.svg" alt="" width="56" height="56" style="border-radius:13px">',
-    title: `${t('credits.title')} ${VERSION}`, html, actions: [{ label: t('egg.ok'), primary: true }],
+// ---------- Easter egg de l'accueil : appui long sur le logo ----------
+function longPress(el, ms, run) {
+  let timer = 0, x = 0, y = 0;
+  const cancel = () => { clearTimeout(timer); timer = 0; };
+  el.addEventListener('pointerdown', (e) => {
+    cancel(); x = e.clientX; y = e.clientY;
+    timer = setTimeout(() => { timer = 0; run(); }, ms);
   });
+  el.addEventListener('pointermove', (e) => { if (Math.hypot(e.clientX - x, e.clientY - y) > 12) cancel(); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => el.addEventListener(ev, cancel));
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
 }
+function showBrother() {
+  haptic(30);
+  openSheet({ title: t('egg.brother'), actions: [{ label: t('egg.ok'), primary: true }] });
+  $('#sheet-title').classList.add('egg');
+}
+longPress($('#logo'), 700, showBrother);
+
+// ---------- Statistiques ----------
+function renderStats() {
+  const st = store.stats;
+  const solved = solvedCount();
+  const stars = Object.entries(store.solved).filter(([k, v]) => +k <= LEVEL_COUNT && v.hints === 0).length;
+  const recs = store.records || [];
+  const bestRec = recs[0];
+  const bestLines = Math.max(st.bestLines || 0, ...recs.map((r) => r.lines || 0));
+  const none = t('stat.none');
+  const n = (v) => (v ? fmt(v) : '0');
+  const row = (label, val) => `<div class="row stat-row"><span class="row-title">${label}</span><span class="stat-val">${val}</span></div>`;
+  const group = (title, rows) => `<h3 class="section-title">${title}</h3><div class="group">${rows.join('')}</div>`;
+
+  const chapters = [];
+  for (let c = 0; c * CHAPTER_SIZE < LEVEL_COUNT; c++) {
+    const a = c * CHAPTER_SIZE + 1, z = Math.min(LEVEL_COUNT, a + CHAPTER_SIZE - 1);
+    let done = 0;
+    for (let k = a; k <= z; k++) if (isSolvedLevel(k)) done++;
+    const pct = Math.round((done / (z - a + 1)) * 100);
+    chapters.push(`<div class="row stat-row chap-row"><span class="chap-name">${a}–${z}</span><span class="chap-bar"><i style="width:${pct}%"></i></span><span class="stat-val">${done}/${z - a + 1}</span></div>`);
+  }
+  const secret = store.solved[SECRET_LEVEL] ? t('stat.secretDone') : t('stat.secretLocked');
+
+  $('#stats-body').innerHTML = `
+    <div class="stat-hero">
+      <div><b>${solved}</b><span>${t('stats.solvedShort')}</span></div>
+      <div><b>${stars}</b><span>${t('stats.starsShort')}</span></div>
+      <div><b>${bestRec ? bestRec.grade || gradeFor(bestRec.score) : none}</b><span>${t('stats.bestShort')}</span></div>
+    </div>
+    ${group(t('stats.puzzle'), [
+      row(t('stat.solved'), `${solved} / ${LEVEL_COUNT}`),
+      row(t('stat.stars'), `${stars} / ${LEVEL_COUNT}`),
+      row(t('stat.highest'), highestSolved() || none),
+      row(t('stat.hints'), n(st.hints)),
+      row(t('stat.secret'), secret),
+    ])}
+    ${group(t('stats.chapters'), chapters)}
+    ${group(t('stats.challenge'), [
+      row(t('stat.games'), n(st.games)),
+      row(t('stat.best'), store.best ? fmt(store.best) : none),
+      row(t('stat.grade'), bestRec ? bestRec.grade || gradeFor(bestRec.score) : none),
+      row(t('stat.bestLines'), n(bestLines)),
+      row(t('stat.lines'), n(st.lines)),
+      row(t('stat.bestChain'), st.bestChain ? '×' + st.bestChain : none),
+      row(t('stat.megas'), n(st.megas)),
+    ])}
+    ${group(t('stats.general'), [
+      row(t('stat.strokes'), n(st.strokes)),
+      row(t('stat.flips'), n(st.flips)),
+    ])}
+    <p class="footnote">${t('stats.by', { v: VERSION })}</p>`;
+}
+hooks.stats = { enter: renderStats };
+$('#go-stats').addEventListener('click', () => go('stats'));
 
 // ---------- Comment jouer : petites démos animées ----------
 function demoBoard(rows) {
@@ -600,4 +643,4 @@ show('home');
 refreshHome();
 
 // Accès de diagnostic (console / tests automatisés), sans effet sur le jeu.
-window.cariflipDebug = { challenge, puzzle, puzzleView, challengeView, showMega, offerUpdate, showCredits };
+window.cariflipDebug = { challenge, puzzle, puzzleView, challengeView, showMega, offerUpdate, showBrother, renderStats };

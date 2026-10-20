@@ -1,0 +1,254 @@
+<title>CariFlip</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Un seul trait pour rendre chaque ligne d'une seule couleur. Jeu de réflexion de Caribou Labs.">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CariFlip">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1.1 1.3 1.1 2.2h5c0-.9.5-1.7 1.1-2.2A6 6 0 0 0 12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.2" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3L2.9 9.5l6.3-.9z" fill="currentColor"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" fill="currentColor"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z" fill="currentColor"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.3" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v13M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 14v3M8 20h8M9 17h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.6 7.6 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V6M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<div id="app">
+
+  <!-- Accueil -->
+  <section class="screen" id="home">
+    <div class="scroll">
+      <header class="hero">
+        <img class="logo" id="logo" src="icons/icon.svg" alt="" width="88" height="88" draggable="false">
+        <h1>CariFlip</h1>
+        <p class="tagline" data-i18n="home.tagline"></p>
+      </header>
+
+      <div class="group">
+        <button class="row" id="go-puzzle">
+          <span class="row-icon" style="--c: var(--accent)"><svg><use href="#i-grid"/></svg></span>
+          <span class="row-text"><span class="row-title" data-i18n="home.puzzle"></span><span class="row-sub" id="puzzle-progress"></span></span>
+          <svg class="chev"><use href="#i-chev"/></svg>
+        </button>
+        <button class="row" id="go-challenge">
+          <span class="row-icon" style="--c: var(--stroke)"><svg><use href="#i-bolt"/></svg></span>
+          <span class="row-text"><span class="row-title" data-i18n="home.challenge"></span><span class="row-sub" id="best-score"></span></span>
+          <svg class="chev"><use href="#i-chev"/></svg>
+        </button>
+        <button class="row" id="go-howto">
+          <span class="row-icon" style="--c: var(--success)"><svg><use href="#i-help"/></svg></span>
+          <span class="row-text"><span class="row-title" data-i18n="home.howto"></span></span>
+          <svg class="chev"><use href="#i-chev"/></svg>
+        </button>
+      </div>
+
+      <div class="group">
+        <button class="row" id="go-settings">
+          <span class="row-icon" style="--c: var(--gray)"><svg><use href="#i-gear"/></svg></span>
+          <span class="row-text"><span class="row-title" data-i18n="home.settings"></span></span>
+          <svg class="chev"><use href="#i-chev"/></svg>
+        </button>
+      </div>
+
+      <p class="footnote" id="install-hint" hidden></p>
+      <p class="footnote version-line" id="version-line">Caribou Labs · v<span id="version"></span></p>
+    </div>
+  </section>
+
+  <!-- Réglages -->
+  <section class="screen" id="settings" hidden>
+    <nav class="navbar">
+      <button class="nav-btn" data-back><svg><use href="#i-back"/></svg><span data-i18n="nav.home"></span></button>
+      <h2 class="nav-title" data-i18n="set.title"></h2>
+      <span class="nav-spacer"></span>
+    </nav>
+    <div class="scroll">
+      <h3 class="section-title" data-i18n="set.language"></h3>
+      <div class="group pad">
+        <div class="seg" id="seg-lang" role="radiogroup">
+          <button data-value="auto" data-i18n="set.auto"></button>
+          <button data-value="fr" data-i18n="set.fr"></button>
+          <button data-value="en" data-i18n="set.en"></button>
+        </div>
+      </div>
+      <h3 class="section-title" data-i18n="set.theme"></h3>
+      <div class="group pad">
+        <div class="seg" id="seg-theme" role="radiogroup">
+          <button data-value="auto" data-i18n="set.auto"></button>
+          <button data-value="light" data-i18n="set.light"></button>
+          <button data-value="dark" data-i18n="set.dark"></button>
+        </div>
+      </div>
+      <div class="group">
+        <label class="row switch-row" for="opt-sound">
+          <span class="row-text"><span class="row-title" data-i18n="set.sound"></span></span>
+          <input type="checkbox" id="opt-sound" class="switch">
+        </label>
+        <label class="row switch-row" for="opt-silent" id="silent-row">
+          <span class="row-text"><span class="row-title" data-i18n="set.silent"></span><span class="row-sub" data-i18n="set.silentSub"></span></span>
+          <input type="checkbox" id="opt-silent" class="switch">
+        </label>
+        <label class="row switch-row" for="opt-haptics" id="haptics-row">
+          <span class="row-text"><span class="row-title" data-i18n="set.haptics"></span></span>
+          <input type="checkbox" id="opt-haptics" class="switch">
+        </label>
+      </div>
+      <p class="footnote" data-i18n="set.note"></p>
+    </div>
+  </section>
+
+  <!-- Sélection des niveaux -->
+  <section class="screen" id="levels" hidden>
+    <nav class="navbar">
+      <button class="nav-btn" data-back><svg><use href="#i-back"/></svg><span data-i18n="nav.home"></span></button>
+      <h2 class="nav-title" data-i18n="levels.title"></h2>
+      <span class="nav-spacer"></span>
+    </nav>
+    <div class="scroll">
+      <div class="chapters" id="chapters" role="tablist"></div>
+      <p class="chapter-caption" id="chapter-caption"></p>
+      <div class="level-grid" id="level-grid"></div>
+    </div>
+  </section>
+
+  <!-- Jeu : Puzzle -->
+  <section class="screen" id="game" hidden>
+    <nav class="navbar">
+      <button class="nav-btn" data-back><svg><use href="#i-back"/></svg><span data-i18n="nav.levels"></span></button>
+      <h2 class="nav-title" id="game-title"></h2>
+      <button class="nav-btn icon-only" id="hint-btn" data-i18n-aria="game.hint">
+        <svg><use href="#i-bulb"/></svg><span class="badge" id="hint-badge">3</span>
+      </button>
+    </nav>
+    <div class="status">
+      <span class="chip" id="dirty-chip"></span>
+      <p id="game-status"></p>
+    </div>
+    <div class="stage" id="puzzle-stage"><canvas id="puzzle-canvas"></canvas></div>
+    <div class="bottombar">
+      <button class="cancel-btn" data-cancel data-i18n-aria="game.cancel"><svg><use href="#i-x"/></svg></button>
+      <button class="pill-btn" id="prev-level"><svg><use href="#i-back"/></svg><span></span></button>
+      <span class="size-label" id="size-label"></span>
+      <button class="pill-btn" id="next-level"><span></span><svg><use href="#i-chev"/></svg></button>
+      <button class="cancel-btn" data-cancel data-i18n-aria="game.cancel"><svg><use href="#i-x"/></svg></button>
+    </div>
+  </section>
+
+  <!-- Menu Challenge -->
+  <section class="screen" id="cmenu" hidden>
+    <nav class="navbar">
+      <button class="nav-btn" data-back><svg><use href="#i-back"/></svg><span data-i18n="nav.home"></span></button>
+      <h2 class="nav-title" data-i18n="cmenu.title"></h2>
+      <span class="nav-spacer"></span>
+    </nav>
+    <div class="scroll">
+      <p class="intro" data-i18n="cmenu.intro"></p>
+      <div class="group">
+        <button class="row" id="start-challenge">
+          <span class="row-icon" style="--c: var(--stroke)"><svg><use href="#i-bolt"/></svg></span>
+          <span class="row-text"><span class="row-title" data-i18n="cmenu.challenge"></span><span class="row-sub" data-i18n="cmenu.challengeSub"></span></span>
+          <svg class="chev"><use href="#i-chev"/></svg>
+        </button>
+        <button class="row" id="start-practice">
+          <span class="row-icon" style="--c: var(--success)"><svg><use href="#i-grid"/></svg></span>
+          <span class="row-text"><span class="row-title" data-i18n="cmenu.practice"></span><span class="row-sub" data-i18n="cmenu.practiceSub"></span></span>
+          <svg class="chev"><use href="#i-chev"/></svg>
+        </button>
+      </div>
+      <h3 class="section-title" data-i18n="cmenu.best"></h3>
+      <div class="group records" id="records"></div>
+    </div>
+  </section>
+
+  <!-- Jeu : Challenge -->
+  <section class="screen" id="challenge" hidden>
+    <nav class="navbar">
+      <button class="nav-btn icon-only" id="pause-btn" data-i18n-aria="ch.pause"><svg><use href="#i-pause"/></svg></button>
+      <div class="hud">
+        <span class="hud-score" id="hud-score">0</span>
+        <span class="hud-meta"><span id="hud-level"></span> · <span id="hud-lines"></span></span>
+      </div>
+      <span class="hud-mode" id="hud-mode"></span>
+    </nav>
+    <div class="stage" id="challenge-stage">
+      <canvas id="challenge-canvas"></canvas>
+      <div class="countdown" id="countdown" aria-live="assertive"></div>
+      <div class="bonus" id="bonus" aria-live="polite"><span class="bonus-main"></span><span class="bonus-sub"></span></div>
+      <div class="mega" id="mega" hidden><div class="mega-text"><span class="mega-title" data-i18n="mega.title"></span><span class="mega-sub" id="mega-sub"></span></div></div>
+    </div>
+    <div class="bottombar">
+      <button class="cancel-btn" data-cancel data-i18n-aria="game.cancel"><svg><use href="#i-x"/></svg></button>
+      <button class="pill-btn" id="rush-btn"><svg><use href="#i-down"/></svg><span data-i18n="ch.drop"></span></button>
+      <button class="cancel-btn" data-cancel data-i18n-aria="game.cancel"><svg><use href="#i-x"/></svg></button>
+    </div>
+  </section>
+
+  <!-- Comment jouer -->
+  <section class="screen" id="howto" hidden>
+    <nav class="navbar">
+      <button class="nav-btn" data-back><svg><use href="#i-back"/></svg><span data-i18n="nav.back"></span></button>
+      <h2 class="nav-title" data-i18n="howto.title"></h2>
+      <span class="nav-spacer"></span>
+    </nav>
+    <div class="scroll">
+      <ol class="steps">
+        <li class="step">
+          <div class="step-art"><canvas data-demo="1"></canvas></div>
+          <div class="step-text"><h3 data-i18n="howto.s1t"></h3><p data-i18n="howto.s1p"></p></div>
+        </li>
+        <li class="step">
+          <div class="step-art"><canvas data-demo="2"></canvas></div>
+          <div class="step-text"><h3 data-i18n="howto.s2t"></h3><p data-i18n="howto.s2p"></p></div>
+        </li>
+        <li class="step">
+          <div class="step-art"><canvas data-demo="3"></canvas></div>
+          <div class="step-text"><h3 data-i18n="howto.s3t"></h3><p data-i18n="howto.s3p"></p></div>
+        </li>
+        <li class="step">
+          <div class="step-art"><canvas data-demo="4"></canvas></div>
+          <div class="step-text"><h3 data-i18n="howto.s4t"></h3><p data-i18n="howto.s4p"></p></div>
+        </li>
+      </ol>
+      <p class="howto-note" data-i18n="howto.note"></p>
+    </div>
+    <!-- Bouton toujours visible, même si le texte dépasse l'écran -->
+    <div class="screen-footer"><button class="btn primary" data-back data-i18n="howto.ok"></button></div>
+  </section>
+
+  <!-- Mise à jour disponible -->
+  <div class="update-bar" id="update-bar" hidden>
+    <span data-i18n="update.text"></span>
+    <button class="btn primary small" id="update-btn" data-i18n="update.btn"></button>
+  </div>
+
+  <!-- Fenêtres -->
+  <div class="sheet-backdrop" id="sheet" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="sheet-badge" id="sheet-badge"></div>
+      <h3 id="sheet-title"></h3>
+      <p id="sheet-body"></p>
+      <div class="sheet-actions" id="sheet-actions"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>

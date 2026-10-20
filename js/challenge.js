@@ -9,7 +9,7 @@ import { t } from './i18n.js';
 export const COLS = 9;                // 9 colonnes de tuiles, comme Polarium
 export const SPAWN = 1;               // ligne au-dessus de la limite (les blocs entrent par le haut)
 export const RESERVE = 7;             // réserve visible mais hors d'atteinte
-export const PLAY = 10;               // zone jouable
+export const PLAY = 12;               // zone jouable : 12 lignes actives, comme Polarium
 export const MEGA_LINES = 6;          // seuil du méga-combo (la figure de départ en fait 8)
 const W = COLS + 2;
 const H = SPAWN + RESERVE + PLAY + 1; // + ligne de cadre en bas

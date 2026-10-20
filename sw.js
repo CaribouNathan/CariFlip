@@ -1,6 +1,6 @@
 // Service worker : met tout le jeu en cache pour qu'il fonctionne hors ligne.
 // À chaque nouvelle version publiée, incrémenter CACHE pour forcer la mise à jour.
-const CACHE = 'cariflip-1.7.0';
+const CACHE = 'cariflip-1.8.0';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/main.js', 'js/renderer.js', 'js/board.js', 'js/generator.js', 'js/rng.js',

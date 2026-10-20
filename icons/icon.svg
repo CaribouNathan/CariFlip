@@ -11,10 +11,10 @@
     <rect x="208" y="94"  width="96" height="96" rx="22" fill="#F2F2F7"/>
     <rect x="322" y="94"  width="96" height="96" rx="22" fill="#0B0B0C"/>
     <rect x="94"  y="208" width="96" height="96" rx="22" fill="#0B0B0C"/>
-    <rect x="208" y="208" width="96" height="96" rx="22" fill="#F2F2F7"/>
-    <rect x="322" y="208" width="96" height="96" rx="22" fill="#0B0B0C"/>
+    <rect x="208" y="208" width="96" height="96" rx="22" fill="#0B0B0C"/>
+    <rect x="322" y="208" width="96" height="96" rx="22" fill="#F2F2F7"/>
     <rect x="94"  y="322" width="96" height="96" rx="22" fill="#F2F2F7"/>
-    <rect x="208" y="322" width="96" height="96" rx="22" fill="#0B0B0C"/>
+    <rect x="208" y="322" width="96" height="96" rx="22" fill="#F2F2F7"/>
     <rect x="322" y="322" width="96" height="96" rx="22" fill="#0B0B0C"/>
   </g>
   <polyline points="142,142 256,142 256,256 142,256 142,370 256,370" fill="none" stroke="#FF9500" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>

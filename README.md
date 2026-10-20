@@ -2,7 +2,7 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.7.0**
+**Version 1.8.0**
 
 ## Règles
 
@@ -13,7 +13,7 @@ Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA ins
 
 **Puzzle** : 200 niveaux en 8 chapitres, à résoudre en un seul trait. Niveaux 1-100 : les 100 puzzles « Stock » de Polarium, relevés image par image dans une vidéo de référence (usage personnel) ; niveaux 101-200 : générés. 3 indices progressifs par niveau, étoile si résolu sans indice.
 
-**Challenge** (modèle : le mode Challenge de Polarium) : puits de 9 colonnes. La partie démarre sur la figure « 1 » (8 lignes, effaçable d'un trait), puis **la même suite de 409 blocs que dans Polarium**, à la même cadence, relevée image par image dans une partie complète (`js/sequence.js`, usage personnel). À force de jouer, on connaît les blocs et on prépare ses enchaînements ; certains blocs ne s'effacent qu'en les combinant avec la pile. À la fin de la suite, elle reprend 15 % plus vite. Seules les 10 lignes du bas sont à portée du doigt, les 7 au-dessus forment une réserve ; partie perdue quand la pile franchit la ligne rouge, dont la jauge jaune annonce le prochain bloc.
+**Challenge** (modèle : le mode Challenge de Polarium) : puits de 9 colonnes. La partie démarre sur la figure « 1 » (8 lignes, effaçable d'un trait), puis **la même suite de 409 blocs que dans Polarium**, à la même cadence, relevée image par image dans une partie complète (`js/sequence.js`, usage personnel). À force de jouer, on connaît les blocs et on prépare ses enchaînements ; certains blocs ne s'effacent qu'en les combinant avec la pile. Passé 100 lignes (niveau 11), Polarium envoie une longue série de lignes simples : chaque paire (et presque toujours chaque groupe de 3 ou 4) qui se suit s'efface d'un seul trait en s'appuyant sur le cadre. À la fin de la suite, elle reprend 15 % plus vite. Seules les 12 lignes du bas sont à portée du doigt, les 7 au-dessus forment une réserve ; partie perdue quand la pile franchit la ligne rouge, dont la jauge jaune annonce le prochain bloc.
 
 - Points d'un trait : (100 / 300 / 600 / 1 000… selon le nombre de lignes + 150 × (chaîne − 1)) × niveau. Plateau vide : +1 000 × niveau.
 - Niveau +1 toutes les 10 lignes (multiplie les points et accélère un peu la chute).
@@ -23,6 +23,8 @@ Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA ins
 
 Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en cours, dans les deux modes.
 
+**Statistiques** (accueil) : progression Puzzle (résolus, étoiles, indices, avancement par chapitre), Challenge (parties, meilleur score et note, record de lignes, lignes effacées, plus longue chaîne, méga-combos) et général (traits, tuiles inversées).
+
 **Réglages** (accueil) : langue (Auto / Français / English), apparence (Auto / Clair / Sombre), sons, vibrations. *Auto* suit l'appareil : français si sa langue commence par « fr », anglais sinon ; thème clair ou sombre selon le système. Les textes sont dans `js/i18n.js` (mêmes clés pour les deux langues).
 
 ## Easter eggs
@@ -30,8 +32,8 @@ Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en 
 - **Méga-combo** : 6 lignes ou plus d'un seul trait en Challenge (la figure « 1 » de départ en un trait) → « MEGA FLIP », confettis, jingle, +5 000 × niveau.
 - **Niveau 201** : caribou en pixel-art, débloqué quand les 200 niveaux sont résolus sans indice (onglet « ★ 201 »).
 - **31 octobre** : tuiles orange/noir. **25 décembre** : tuiles rouge/vert. Seules les couleurs changent. Test : ajouter `?season=halloween` ou `?season=christmas` à l'adresse.
-- **7 appuis sur le logo** de l'accueil : message secret.
-- **Appui long sur le numéro de version** : crédits et statistiques (traits, tuiles inversées, lignes, plus longue chaîne, méga-combos…).
+- **Appui long sur le logo** de l'accueil : message secret.
+- L'icône de l'app est elle-même un puzzle résolu : son trait rend chaque ligne unie.
 
 ## Tester sur le Mac
 

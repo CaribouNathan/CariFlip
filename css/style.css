@@ -86,7 +86,7 @@ html, body { overflow: hidden; }
 
 /* Accueil */
 .hero { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-block: 36px 28px; text-align: center; }
-.logo { width: 88px; height: 88px; border-radius: 20px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); }
+.logo { width: 88px; height: 88px; border-radius: 20px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 .hero h1 { font: 800 40px/1.05 var(--font-round); letter-spacing: -0.02em; margin: 12px 0 0; }
 .tagline { margin: 0; color: var(--secondary); font-size: 16px; text-wrap: balance; }
 
@@ -230,7 +230,8 @@ html, body { overflow: hidden; }
 .sheet-badge { font: 800 34px/1 var(--font-round); color: var(--stroke); font-variant-numeric: tabular-nums; }
 .sheet-badge:empty { display: none; }
 .sheet-badge svg { font-size: 44px; color: var(--success); }
-.sheet h3 { margin: 10px 0 4px; font-size: 19px; }
+.sheet h3 { margin: 10px 0 4px; font-size: 19px; text-wrap: balance; }
+.sheet h3.egg { font-size: 21px; line-height: 1.3; margin: 6px 4px 22px; }
 .sheet p { margin: 0 0 18px; color: var(--secondary); font-size: 15px; text-wrap: balance; }
 .sheet-actions { display: flex; flex-direction: column; gap: 8px; }
 .sheet-actions .btn { min-width: 0; width: 100%; }
@@ -358,3 +359,16 @@ html, body, #app, .screen { overflow-x: clip; }
 .chapter.secret { background: var(--stroke); color: #fff; }
 .chapter.secret[aria-selected="true"] { background: var(--label); color: var(--bg); }
 @media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
+
+/* ---------- Statistiques ---------- */
+.stat-row { min-height: 44px; }
+.stat-row .row-title { font-weight: 400; }
+.stat-val { margin-left: auto; padding-left: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.stat-hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 18px; }
+.stat-hero div { background: var(--card); border-radius: 12px; padding: 12px 6px; text-align: center; }
+.stat-hero b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+.stat-hero span { font-size: 12px; color: var(--secondary); }
+.chap-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--fill); margin: 0 12px; overflow: hidden; min-width: 40px; }
+.chap-bar i { display: block; height: 100%; background: var(--stroke); border-radius: 3px; }
+.chap-row .chap-name { width: 84px; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chap-row .stat-val { margin-left: 0; padding-left: 0; min-width: 52px; text-align: right; }

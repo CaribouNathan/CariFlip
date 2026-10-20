@@ -1,7 +1,7 @@
 // Sauvegarde locale (progression, meilleur score, réglages). Tolère un stockage indisponible.
 const KEY = 'cariflip.v1';
 const defaults = () => ({ solved: {}, best: 0, records: [], lang: 'auto', theme: 'auto', sound: true, soundInSilent: true, haptics: true, tutorialSeen: false, lastLevel: 1,
-  stats: { strokes: 0, flips: 0, lines: 0, bestChain: 0, megas: 0, games: 0 } });
+  stats: { strokes: 0, flips: 0, lines: 0, bestChain: 0, megas: 0, games: 0, hints: 0, bestLines: 0 } });
 
 let state = defaults();
 try {
