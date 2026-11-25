@@ -24,8 +24,11 @@ async function rpc(fn, body) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 12000);
   try {
+    const payload = JSON.stringify(body);
     const r = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/rpc/${fn}`, {
-      method: 'POST', headers: headers(), body: JSON.stringify(body), signal: ctrl.signal, cache: 'no-store',
+      method: 'POST', headers: headers(), body: payload, signal: ctrl.signal, cache: 'no-store',
+      // keepalive : la requête lancée quand l'app passe en arrière-plan va au bout (limite : 64 Ko).
+      keepalive: payload.length < 60000,
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const txt = await r.text();
@@ -78,13 +81,19 @@ export function syncNow() {
 let debounce = 0;
 export function scheduleSync(ms = 2500) {
   clearTimeout(debounce);
-  debounce = setTimeout(syncNow, ms);
+  debounce = setTimeout(() => { debounce = 0; syncNow(); }, ms);
+}
+// Progression en attente d'envoi : on l'envoie tout de suite (app mise en arrière-plan ou fermée).
+function flush() {
+  if (!debounce) return;
+  clearTimeout(debounce); debounce = 0;
+  syncNow();
 }
 export function startSync() {
   onSave(() => scheduleSync());
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); else if (debounce) syncNow(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); else syncNow(); });
   window.addEventListener('online', () => syncNow());
-  window.addEventListener('pagehide', () => { if (debounce) syncNow(); });
+  window.addEventListener('pagehide', flush);
   setInterval(() => { if (!document.hidden) syncNow(); }, 45000);
   syncNow();
 }

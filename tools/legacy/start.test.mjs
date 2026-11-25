@@ -1,7 +1,7 @@
 // Lancer : node tests/start.test.mjs
 // Vérifie que chaque grille de départ admet un trait unique qui efface toutes les lignes.
-import { buildStartStack } from '../js/start.js';
-import { checkFullClear } from '../js/solver.js';
+import { buildStartStack } from './start.js';
+import { checkFullClear } from './solver.js';
 let fails = 0, fallbacks = 0, tries = 0;
 const times = [];
 for (const n of [10, 3]) {

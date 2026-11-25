@@ -9,10 +9,10 @@ import { store, save, markSolved, markDaily, isSolvedLevel, isUnlocked, solvedCo
 import { syncConfigured, syncNow, startSync, onSyncState, syncState, fetchFamily } from './sync.js';
 import { optimalForLevel, minFlips } from './optimal.js';
 import { sfx, haptic, hapticsAvailable, silentOverrideAvailable, applyAudioSession, IS_IOS } from './audio.js';
-import { makeBoard, set, applyPath, isTile, at } from './board.js';
+import { makeBoard, set, applyPath, isTile, at, dirtyRowCount } from './board.js';
 import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange } from './i18n.js';
 
-export const VERSION = '1.9.0';
+export const VERSION = '1.10.0';
 const $ = (s) => document.querySelector(s);
 const megaEl = document.querySelector('#mega');
 
@@ -32,8 +32,8 @@ if (season) {
   document.querySelector('link[rel="icon"]').href = `icons/icon-${season}.svg`;
   document.querySelector('link[rel="apple-touch-icon"]').href = `icons/apple-touch-icon-${season}.png`;
   document.querySelector('link[rel="manifest"]').href = `manifest-${season}.webmanifest`;
-  document.getElementById('logo').src = `icons/icon-${season}.svg`;
 }
+const DEFAULT_LOGO = season ? `icons/icon-${season}.svg` : 'icons/icon.svg';
 const fmt = (n) => fmtNum(n);
 
 // ---------- Navigation ----------
@@ -49,7 +49,12 @@ function show(id) {
   window.scrollTo(0, 0);
   document.documentElement.scrollLeft = 0; document.body.scrollLeft = 0; $('#app').scrollLeft = 0;
 }
+let lastGo = 0;
 function go(id, arg) {
+  // Double appui rapide sur une ligne : un seul changement d'écran.
+  const now = performance.now();
+  if (id === current() || now - lastGo < 250) return;
+  lastGo = now;
   hooks[current()]?.leave?.();
   stack.push(id);
   history.pushState({ depth: stack.length }, '');
@@ -66,7 +71,8 @@ function back() {
 // Bouton retour Android / geste retour : même effet que la flèche de l'app.
 window.addEventListener('popstate', () => {
   if (!sheet.hidden && sheet.dataset.locked) { history.pushState({ depth: stack.length }, ''); return; }
-  if (!sheet.hidden) closeSheet();
+  // Retour système sur une fenêtre ouverte : il ferme la fenêtre, sans quitter l'écran.
+  if (!sheet.hidden) { closeSheet(); history.pushState({ depth: stack.length }, ''); return; }
   if (hooks[current()]?.intercept?.()) { history.pushState({ depth: stack.length }, ''); return; }
   back();
 });
@@ -115,7 +121,7 @@ $('#version').textContent = VERSION;
 $('#go-puzzle').addEventListener('click', () => {
   go('levels', true);
   // Première fois : le tutoriel s'ouvre par-dessus la liste, « Compris » y ramène.
-  if (!store.tutorialSeen) { store.tutorialSeen = true; save(); go('howto'); }
+  if (!store.tutorialSeen) { store.tutorialSeen = true; save(); lastGo = 0; go('howto'); }
 });
 $('#go-challenge').addEventListener('click', () => go('cmenu'));
 $('#go-daily').addEventListener('click', () => go('game', 'daily'));
@@ -137,6 +143,7 @@ function applyTheme() {
     delete root.dataset.theme;
     metas.forEach((m) => { m.content = m.media.includes('dark') ? THEME_COLORS.dark : THEME_COLORS.light; });
   }
+  applyAccent();
   // Les canvas relisent leurs couleurs.
   refreshCanvases();
 }
@@ -152,6 +159,81 @@ function bindSeg(id, value, onPick) {
 }
 bindSeg('#seg-lang', store.lang || 'auto', (v) => setLangPref(v));
 bindSeg('#seg-theme', store.theme || 'auto', (v) => { store.theme = v; save(false); applyTheme(); });
+
+// ---------- Couleur d'accent ----------
+// Couleurs système (clair / sombre) ; une couleur libre est enregistrée telle quelle (#RRGGBB).
+const ACCENTS = {
+  blue: ['#007AFF', '#0A84FF'], purple: ['#AF52DE', '#BF5AF2'], pink: ['#FF2D55', '#FF375F'], red: ['#FF3B30', '#FF453A'],
+  orange: ['#FF9500', '#FF9F0A'], yellow: ['#FFCC00', '#FFD60A'], green: ['#34C759', '#30D158'], graphite: ['#8E8E93', '#98989D'],
+};
+const isHex = (v) => /^#[0-9a-f]{6}$/i.test(v || '');
+const isDark = () => (store.theme === 'dark' || (store.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches));
+function applyAccent() {
+  const root = document.documentElement;
+  const pair = ACCENTS[store.accent];
+  const color = pair ? pair[isDark() ? 1 : 0] : isHex(store.accent) ? store.accent : null;
+  if (!color || store.accent === 'blue') {
+    root.style.removeProperty('--accent'); root.style.removeProperty('--on-accent');
+    return;
+  }
+  root.style.setProperty('--accent', color);
+  // Texte posé sur l'accent : noir si la couleur est claire (jaune…), blanc sinon.
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+  root.style.setProperty('--on-accent', (r * 299 + g * 587 + b * 114) / 1000 > 165 ? '#000' : '#fff');
+}
+function renderAccents() {
+  const box = $('#accent-swatches');
+  const custom = isHex(store.accent) ? store.accent : null;
+  box.innerHTML = Object.entries(ACCENTS).map(([k, pair]) =>
+    `<button type="button" role="radio" class="swatch" data-accent="${k}" aria-checked="${store.accent === k}" aria-label="${esc(t('accent.' + k))}" style="--sw:${pair[isDark() ? 1 : 0]}"></button>`).join('')
+    + `<label class="swatch custom" aria-checked="${!!custom}" style="${custom ? `--sw:${custom}` : ''}" aria-label="${esc(t('set.accentCustom'))}"><input type="color" id="accent-custom" value="${custom || '#007AFF'}"></label>`;
+  box.querySelectorAll('[data-accent]').forEach((b) => b.addEventListener('click', () => setAccent(b.dataset.accent)));
+  const inp = $('#accent-custom');
+  inp.addEventListener('input', () => { store.accent = inp.value; save(false); applyAccent(); refreshCanvases(); });
+  inp.addEventListener('change', () => setAccent(inp.value));
+}
+function setAccent(v) {
+  store.accent = v; save(false);
+  applyAccent(); refreshCanvases(); renderAccents();
+  haptic(8);
+}
+
+// ---------- Logo de l'app (propre à l'appareil) ----------
+const logoSrc = () => store.logo || DEFAULT_LOGO;
+function applyLogo() {
+  document.querySelectorAll('[data-logo]').forEach((img) => { img.src = logoSrc(); });
+  $('#logo-reset').hidden = !store.logo;
+}
+// L'image choisie est ramenée à un carré de 256 px (PNG) : léger, et identique partout.
+function readLogo(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const S = 256, cv = document.createElement('canvas');
+        cv.width = cv.height = S;
+        const w = img.naturalWidth || S, h = img.naturalHeight || S, k = Math.max(S / w, S / h);
+        cv.getContext('2d').drawImage(img, (S - w * k) / 2, (S - h * k) / 2, w * k, h * k);
+        resolve(cv.toDataURL('image/png'));
+      } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image')); };
+    img.src = url;
+  });
+}
+$('#logo-pick').addEventListener('click', () => $('#logo-file').click());
+$('#logo-file').addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try { store.logo = await readLogo(file); save(false); applyLogo(); haptic(15); }
+  catch { openSheet({ title: t('set.logoError'), actions: [{ label: t('egg.ok'), primary: true }] }); }
+});
+$('#logo-reset').addEventListener('click', () => { store.logo = null; save(false); applyLogo(); haptic(10); });
+$('#about-version').textContent = VERSION;
+$('#about-year').textContent = '© ' + new Date().getFullYear();
+hooks.settings = { enter: renderAccents };
 
 const optSound = $('#opt-sound'), optHaptics = $('#opt-haptics'), optSilent = $('#opt-silent');
 optSound.checked = store.sound;
@@ -280,7 +362,7 @@ const puzzle = new PuzzleMode(puzzleView, {
     if (n === SECRET_LEVEL) {
       sfx.mega();
       openSheet({
-        badge: '<img src="icons/icon.svg" alt="" width="64" height="64" style="border-radius:14px">',
+        badge: `<img src="${esc(logoSrc())}" alt="" width="64" height="64" style="border-radius:14px">`,
         title: t('secret.winTitle'), html: esc(t('secret.winBody')) + medal, actions, locked: true,
       });
       return;
@@ -414,7 +496,8 @@ const challenge = new ChallengeMode(challengeView, {
       rank = addRecord({ score: r.score, lines: r.lines, grade, chain: r.maxChain, date: Date.now() });
       title = rank === 0 ? t('ch.record') : rank > 0 ? t('ch.rank', { n: rank + 1 }) : t('ch.over');
     }
-    setTimeout(() => openSheet({
+    const game = challenge.game;
+    setTimeout(() => current() === 'challenge' && challenge.game === game && openSheet({
       badge: practice ? fmt(r.score) : grade,
       badgeClass: practice ? '' : 'grade',
       title: practice ? t('ch.practiceOver') : title,
@@ -562,6 +645,7 @@ function startRush() {
 function rushEnd() {
   rush.running = false; rush.over = true;
   clearInterval(rush.timer);
+  rushPuzzle.clearTimers();   // sinon une animation en cours pouvait réactiver la grille sous la fenêtre
   rushView.cancelDrawing(); rushView.enabled = false;
   sfx.over(); haptic(80);
   bumpStat('taGames', 1, false);
@@ -590,7 +674,7 @@ function rushQuitMenu() {
   openSheet({
     title: t('rush.quitTitle'), body: t('rush.quitBody'),
     actions: [
-      { label: t('rush.resume'), primary: true, run: () => { rush.last = performance.now(); rush.running = wasRunning || !rush.over; } },
+      { label: t('rush.resume'), primary: true, run: () => { rush.last = performance.now(); rush.running = wasRunning; } },
       { label: t('rush.quit'), run: () => { stopRush(); history.back(); } },
     ],
     locked: true,
@@ -850,7 +934,7 @@ longPress($('#logo'), 700, showBrother);
 longPress($('#version-line'), 700, () => {
   haptic(20);
   openSheet({
-    badge: `<img src="${$('#logo').getAttribute('src')}" alt="" width="56" height="56" style="border-radius:13px">`,
+    badge: `<img src="${esc(logoSrc())}" alt="" width="56" height="56" style="border-radius:13px">`,
     title: t('egg.psst'), body: t('egg.season'), actions: [{ label: t('egg.ok'), primary: true }],
   });
 });
@@ -967,7 +1051,7 @@ hooks.howto = {
 };
 
 // Thème : les canvas relisent les couleurs quand le système bascule clair/sombre.
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', refreshCanvases);
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { applyAccent(); refreshCanvases(); });
 
 // ---------- Installation (PWA) ----------
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
@@ -1030,16 +1114,18 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 // Langue : textes fixes, puis écran courant re-rendu quand la langue change.
 applyStatic();
 applyTheme();
+applyLogo();
 refreshInstallHint();
 onLangChange(() => {
   refreshInstallHint();
   const id = current();
   if (id === 'game') {
     $('#game-title').textContent = puzzleCtx === 'daily' ? t('daily.title') : t('game.level', { n: currentLevel });
-    puzzle.ui.onDirty(puzzle.board ? dirtyCount() : 0);
+    $('#game-back').textContent = t(puzzleCtx === 'daily' ? 'nav.home' : 'nav.levels');
+    if (puzzleView.board) puzzle.ui.onDirty(dirtyRowCount(puzzleView.board));
+    statusEl.textContent = t('game.intro'); statusEl.className = '';
   } else if (id !== 'challenge' && id !== 'rush' && id !== 'profile-edit') hooks[id]?.enter?.();
 });
-function dirtyCount() { const c = $('#dirty-chip'); return c.classList.contains('done') ? 0 : parseInt(c.textContent, 10) || 0; }
 
 history.replaceState({ depth: 1 }, '');
 // Premier lancement : création du profil ; sinon le dernier profil utilisé.

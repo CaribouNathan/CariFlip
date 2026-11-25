@@ -38,6 +38,7 @@ export const formatCode = (c) => (c ? c.match(/.{1,4}/g).join('-') : '');
 
 const deviceDefaults = () => ({
   id: randId(8), lang: 'auto', theme: 'auto', sound: true, soundInSilent: true, haptics: true,
+  accent: 'blue', logo: null,
   profile: null, lastLevel: {}, code: null, rev: 0, lastSync: 0, legacy: null,
 });
 const emptyFamily = () => ({ profiles: {} });
@@ -120,7 +121,10 @@ export function updateProfile(id, patch) {
   save();
 }
 export function deleteProfile(id) {
-  updateProfile(id, { deleted: true });
+  const p = family.profiles[id];
+  if (!p) return;
+  family.profiles[id] = tombstone({ ...p, updated: Math.max(Date.now(), p.updated + 1) });
+  save();
   if (device.profile === id) { device.profile = null; currentProfile(); persist(); }
 }
 export function switchProfile(id) {
@@ -161,6 +165,9 @@ export function mergeProfile(a, b) {
   }
   const maxes = {};
   for (const k of new Set([...Object.keys(a.maxes || {}), ...Object.keys(b.maxes || {})])) maxes[k] = Math.max((a.maxes || {})[k] || 0, (b.maxes || {})[k] || 0);
+  // Profil supprimé : on ne garde que sa « pierre tombale » (la suppression doit se propager
+  // aux autres appareils), sans sa progression, pour ne pas alourdir la synchro indéfiniment.
+  if (meta.deleted) return tombstone({ id: a.id, name: meta.name, avatar: meta.avatar, created: Math.min(a.created, b.created), updated: Math.max(a.updated, b.updated) });
   return {
     id: a.id, name: meta.name, avatar: meta.avatar, deleted: !!meta.deleted,
     created: Math.min(a.created, b.created), updated: Math.max(a.updated, b.updated),
@@ -172,6 +179,8 @@ export function mergeProfile(a, b) {
     tutorialSeen: !!(a.tutorialSeen || b.tutorialSeen),
   };
 }
+const tombstone = (p) => ({ id: p.id, name: p.name, avatar: p.avatar, created: p.created, updated: p.updated, deleted: true,
+  solved: {}, daily: {}, records: [], ta: [], stats: {}, maxes: {}, tutorialSeen: false });
 export function mergeFamily(A, B) {
   const out = { profiles: {} };
   const pa = (A && A.profiles) || {}, pb = (B && B.profiles) || {};
@@ -179,11 +188,15 @@ export function mergeFamily(A, B) {
   return out;
 }
 // Remplace la famille locale par une version fusionnée (venue de la synchro).
+// Les écrans ne sont prévenus que si quelque chose a réellement changé : la synchro tourne
+// en tâche de fond et ne doit pas faire redessiner l'interface pour rien.
 export function adoptFamily(merged) {
+  const changed = !sameFamily(family, merged);
   family = merged;
   currentProfile();
   persist();
-  listeners.change.forEach((fn) => fn());
+  if (changed) listeners.change.forEach((fn) => fn());
+  return changed;
 }
 export const sameFamily = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
 function canon(v) {
@@ -196,7 +209,7 @@ function canon(v) {
 // Réglages → appareil ; progression → profil actif.
 const P = () => currentProfile() || { solved: {}, daily: {}, records: [], ta: [], stats: {}, maxes: {} };
 export const store = {};
-for (const k of ['lang', 'theme', 'sound', 'soundInSilent', 'haptics']) {
+for (const k of ['lang', 'theme', 'sound', 'soundInSilent', 'haptics', 'accent', 'logo']) {
   Object.defineProperty(store, k, { get: () => device[k], set: (v) => { device[k] = v; }, enumerable: true });
 }
 Object.defineProperties(store, {

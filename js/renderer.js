@@ -42,7 +42,13 @@ export class BoardView {
     this.cell = 0; this.ox = 0; this.oy = 0;
     this.running = false;
 
-    this.ro = new ResizeObserver(() => this.resize());
+    // Redimensionnement : regroupé sur l'image suivante (une seule mise en page par image),
+    // et sans effet quand la taille n'a pas réellement changé.
+    this.roFrame = 0;
+    this.ro = new ResizeObserver(() => {
+      if (this.roFrame) return;
+      this.roFrame = requestAnimationFrame(() => { this.roFrame = 0; this.resize(); });
+    });
     this.ro.observe(canvas.parentElement);
 
     if (interactive) {
@@ -54,7 +60,7 @@ export class BoardView {
     }
   }
 
-  refreshTheme() { this.theme = readTheme(); }
+  refreshTheme() { this.theme = readTheme(); this.themeRev = (this.themeRev || 0) + 1; }
 
   setBoard(board, field, { zones = [], reach = null, squeeze = null } = {}) {
     this.board = board;
@@ -62,39 +68,68 @@ export class BoardView {
     this.field = field || { x0: 1, y0: 1, x1: board.w - 2, y1: board.h - 2 };
     this.zones = zones;
     this.reach = reach;
-    this.resize();
+    this.resize(true);
   }
 
-  resize() {
+  // force : le plateau a changé (la géométrie est à recalculer même si la zone a la même taille).
+  resize(force = false) {
     if (!this.board) return;
     const parent = this.canvas.parentElement;
     const W = parent.clientWidth, H = parent.clientHeight;
     if (!W || !H) return;
-    this.dpr = Math.min(window.devicePixelRatio || 1, 3);
-    this.canvas.width = Math.round(W * this.dpr);
-    this.canvas.height = Math.round(H * this.dpr);
-    this.canvas.style.width = W + 'px';
-    this.canvas.style.height = H + 'px';
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const sameBox = W === this.boxW && H === this.boxH && dpr === this.dpr;
+    if (sameBox && !force) return;
+    if (!sameBox) {
+      // Réallouer le canvas l'efface et coûte cher : seulement quand sa taille change vraiment.
+      this.boxW = W; this.boxH = H; this.dpr = dpr;
+      this.canvas.width = Math.round(W * dpr);
+      this.canvas.height = Math.round(H * dpr);
+      this.canvas.style.width = W + 'px';
+      this.canvas.style.height = H + 'px';
+    }
     const { w, h } = this.board;
     const sq = this.squeeze;
     const effRows = sq ? sq.rows * sq.k + (h - sq.rows) : h;
     this.cell = Math.floor(Math.min(W / w, H / effRows, 84));
     this.ox = Math.floor((W - this.cell * w) / 2);
     this.oy = Math.floor((H - this.rowTop(h)) / 2);
+    this.sig = null;
     this.draw(performance.now());
   }
 
   start() {
     if (this.running) return;
     this.running = true;
+    this.sig = null;
     const loop = (t) => {
       if (!this.running) return;
-      this.draw(t);
+      // Rien ne bouge et rien n'a changé : on ne redessine pas (batterie, chauffe).
+      const sig = this.signature();
+      if (this.animating() || sig !== this.sig) { this.sig = sig; this.draw(t); }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
   }
   stop() { this.running = false; }
+
+  // Vrai tant qu'une animation est en cours (le dessin dépend alors du temps).
+  animating() {
+    return this.flips.size > 0 || this.clears.size > 0 || this.flashes.size > 0 || this.drops.size > 0
+      || this.pending || !!(this.hintPath && this.hintPath.length);
+  }
+  // Empreinte de tout ce qui change l'image hors animations.
+  signature() {
+    const p = this.path, last = p.length ? p[p.length - 1] : null;
+    const pc = this.piece, lim = this.limit;
+    return [this.boardRev(), p.length, last ? last[0] * 100 + last[1] : -1, this.drawing ? 1 : 0,
+      pc ? pc.yb.toFixed(3) : '', lim ? lim.gauge.toFixed(3) : '', this.danger.toFixed(2), this.themeRev].join('|');
+  }
+  // Numéro qui change à chaque nouveau plateau affiché (les plateaux sont remplacés, jamais modifiés en place).
+  boardRev() {
+    if (this.board !== this.lastBoard) { this.lastBoard = this.board; this.rev = (this.rev || 0) + 1; }
+    return this.rev;
+  }
 
   // ---------- Géométrie verticale (lignes du haut éventuellement tassées) ----------
   rowTop(yf) {
@@ -340,7 +375,7 @@ export class BoardView {
         if (v === HOLE) {
           // Case creuse : contour pointillé sur fond enfoncé, impossible à confondre avec une tuile.
           const ins = gap + s * 0.06;
-          this.rr(px + ins, py + ins, s - 2 * ins, s - 2 * ins, rad);
+          this.rr(px + ins, py + ins, s - 2 * ins, rh - 2 * ins, rad);
           c.fillStyle = T.well; c.fill();
           c.setLineDash([Math.max(2, s * 0.08), Math.max(2, s * 0.07)]);
           c.lineWidth = Math.max(1.5, s * 0.04); c.strokeStyle = T.dot; c.stroke();

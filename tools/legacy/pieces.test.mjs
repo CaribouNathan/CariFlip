@@ -1,5 +1,5 @@
 // Lancer : node tests/pieces.test.mjs
-import { PATTERNS, validatePatterns, randomPiece } from '../js/pieces.js';
+import { PATTERNS, validatePatterns, randomPiece } from './pieces.js';
 const errs = validatePatterns();
 let bad = 0, total = 0;
 for (let level = 1; level <= 20; level++) {

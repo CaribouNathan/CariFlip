@@ -2,7 +2,7 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.9.0**
+**Version 1.10.0**
 
 ## Règles
 
@@ -33,7 +33,17 @@ Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en 
 
 **Statistiques** (accueil) : progression Puzzle (résolus, étoiles, indices, avancement par chapitre), Puzzle du jour (jours résolus, série en cours, meilleure série), Contre-la-montre (record, parties), Challenge (parties, meilleur score et note, record de lignes, lignes effacées, plus longue chaîne, méga-combos) et général (traits, tuiles inversées).
 
-**Réglages** (accueil) : langue (Auto / Français / English), apparence (Auto / Clair / Sombre), sons, vibrations. *Auto* suit l'appareil : français si sa langue commence par « fr », anglais sinon ; thème clair ou sombre selon le système. Les textes sont dans `js/i18n.js` (mêmes clés pour les deux langues).
+**Réglages** (accueil) : langue (Auto / Français / English), apparence (Auto / Clair / Sombre), sons, vibrations, **couleur d'accent** (8 couleurs système ou couleur libre), **logo de l'app** (image au choix, propre à l'appareil, avec retour au logo d'origine) et À propos (version). *Auto* suit l'appareil : français si sa langue commence par « fr », anglais sinon ; thème clair ou sombre selon le système. Les textes sont dans `js/i18n.js` (mêmes clés pour les deux langues).
+
+## Nouveautés de la 1.10.0 (stabilisation)
+
+- **Plateau stable** : plus de tremblement à l'ouverture d'une grille, au premier contact du doigt, à l'affichage d'un message ou au changement de niveau. La zone de message et la barre du bas ont une hauteur fixe ; les ✕ se superposent aux boutons précédent/suivant sans rien déplacer.
+- **Synchro discrète** : une synchro qui n'apporte rien ne redessine plus l'écran (la liste des niveaux était reconstruite après chaque synchro, toutes les 45 s). L'envoi part au bout quand l'app passe en arrière-plan.
+- **Batterie** : le plateau n'est redessiné que lorsqu'il change ou s'anime (au lieu de 60 fois par seconde en continu) ; le canvas n'est réalloué que si sa taille change.
+- **Mise à jour fiable** : la nouvelle version est téléchargée sur le serveur sans passer par le cache du navigateur (plus de mélange de deux versions dans les minutes qui suivent une publication).
+- Corrections : retour système sur une fenêtre (la ferme sans quitter l'écran), double appui sur une ligne (un seul écran ouvert), « Recommencer » pendant un effacement en Challenge, fenêtre de fin de partie après avoir quitté, grille réactivée sous la fenêtre de fin du contre-la-montre, profils supprimés allégés dans la synchro.
+- Réglages : couleur d'accent, logo de l'app, À propos.
+- Code retiré du jeu (ancien générateur du Challenge) déplacé dans `tools/legacy/`.
 
 ## Easter eggs
 
@@ -66,7 +76,7 @@ Après toute modification, incrémenter `CACHE` dans `sw.js` (et `VERSION` dans 
 
 Les niveaux sont générés à partir d'une graine fixe (`js/rng.js`), identiques sur tous les appareils, chacun avec une solution garantie. Modifier `GEN_VERSION` ou la courbe `TIERS` (`js/generator.js`) change tous les niveaux et décale la progression des joueurs.
 
-Vérification : `node tests/generator.test.mjs` (contrôle les 200 niveaux) `node tests/pieces.test.mjs` (symétrie des blocs du Challenge). `node tools/check-challenge.mjs` liste les blocs du Challenge qui ne s'effacent pas seuls. Les solutions des 100 puzzles Stock sont recalculées par `node tools/solve-stock.mjs`.
+Vérification : `node tests/generator.test.mjs` (contrôle les 200 niveaux) `node tests/merge.test.mjs` (fusion de la synchro). `node tools/check-challenge.mjs` liste les blocs du Challenge qui ne s'effacent pas seuls. Les solutions des 100 puzzles Stock sont recalculées par `node tools/solve-stock.mjs`.
 
 ## Structure
 
@@ -81,6 +91,8 @@ js/challenge.js         mode Challenge / Entraînement
 js/sequence.js          suite fixe des blocs du Challenge (Polarium)
 js/stock.js             les 100 puzzles de Polarium
 tools/                  relevés (puzzles, Challenge) et solveur
+tools/legacy/           ancien générateur aléatoire du Challenge (hors jeu)
+tests/                  tests Node (générateur, fusion de la synchro)
 js/storage.js           profils, sauvegarde, fusion pour la synchro
 js/sync.js              synchronisation Supabase (code famille)
 js/config.js            adresse et clé publique Supabase

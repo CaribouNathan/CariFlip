@@ -1,10 +1,10 @@
 // Service worker : met tout le jeu en cache pour qu'il fonctionne hors ligne.
 // À chaque nouvelle version publiée, incrémenter CACHE pour forcer la mise à jour.
-const CACHE = 'cariflip-1.9.0';
+const CACHE = 'cariflip-1.10.0';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/main.js', 'js/renderer.js', 'js/board.js', 'js/generator.js', 'js/rng.js',
-  'js/puzzle.js', 'js/challenge.js', 'js/pieces.js', 'js/solver.js', 'js/start.js', 'js/sequence.js', 'js/stock.js', 'js/i18n.js', 'js/storage.js', 'js/audio.js',
+  'js/puzzle.js', 'js/challenge.js', 'js/sequence.js', 'js/stock.js', 'js/i18n.js', 'js/storage.js', 'js/audio.js',
   'js/sync.js', 'js/config.js', 'js/optimal.js', 'js/optimal-data.js', 'js/solve-board.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
   'icons/maskable-512.png', 'icons/apple-touch-icon.png',
@@ -16,7 +16,9 @@ const FILES = [
 self.addEventListener('install', (e) => {
   // Pas de skipWaiting automatique : la page propose « Mettre à jour » et décide du moment.
   // Première installation : rien ne tourne encore, la version s'active d'elle-même.
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+  // cache: 'reload' : on prend les fichiers sur le serveur, jamais dans le cache HTTP du navigateur
+  // (GitHub Pages le garde 10 minutes : sans cela, une mise à jour pouvait mélanger deux versions).
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' })))));
 });
 
 self.addEventListener('activate', (e) => {
@@ -31,7 +33,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request, { ignoreSearch: true }).then((hit) => hit || fetch(e.request))
+    // Dans le cache de CETTE version uniquement : pas de mélange avec une version en attente.
+    caches.open(CACHE).then((c) => c.match(e.request, { ignoreSearch: true })).then((hit) => hit || fetch(e.request))
   );
 });
 

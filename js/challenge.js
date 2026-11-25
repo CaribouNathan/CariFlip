@@ -53,6 +53,7 @@ export class ChallengeMode {
   }
 
   start(modeKey = 'challenge') {
+    this.game = (this.game || 0) + 1;   // identifiant de partie : invalide les minuteries de la précédente
     this.modeKey = modeKey;
     this.mode = MODES[modeKey];
     this.level = 1;
@@ -181,7 +182,8 @@ export class ChallengeMode {
     // Les très longs traits gardent une animation courte (≈ 0,6 s au total).
     const dur = this.view.animateFlips(tiles, this.board, { stagger: Math.min(12, 450 / tiles.length), dur: 160 });
     sfx.flip();
-    setTimeout(() => this.resolve(), dur + 30);
+    const game = this.game;
+    setTimeout(() => { if (game === this.game) this.resolve(); }, dur + 30);
   }
 
   resolve() {
@@ -197,8 +199,9 @@ export class ChallengeMode {
     this.view.flashRows(ys, 'success', 400);
     const d = this.view.animateClear(ys, 300);
     sfx.clear(full.length); haptic(20);
+    const game = this.game;
     setTimeout(() => {
-      if (this.over) return;
+      if (this.over || game !== this.game) return;
       // Chute visuelle : chaque ligne restante descend du nombre de lignes effacées sous elle.
       const drops = new Map();
       let removedBelow = 0;
@@ -260,7 +263,7 @@ export class ChallengeMode {
     this.ui.onGameOver({ mode: this.modeKey, score: this.score, lines: this.lines, level: this.level, maxChain: this.maxChain });
   }
 
-  stop() { cancelAnimationFrame(this.raf); this.over = true; this.view.cancelDrawing(); this.view.piece = null; }
+  stop() { cancelAnimationFrame(this.raf); this.game = (this.game || 0) + 1; this.over = true; this.view.cancelDrawing(); this.view.piece = null; }
 }
 
 // Note en lettre, à la manière du jeu d'origine (barème propre à CariFlip).

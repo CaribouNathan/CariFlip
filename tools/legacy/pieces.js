@@ -3,7 +3,7 @@
 // Tous les motifs sont symétriques gauche-droite (chaque ligne est un palindrome) :
 // toute grille du Challenge, quel que soit l'empilement, reste symétrique tant que le joueur n'y touche pas.
 // Variation : inversion des couleurs, qui conserve la symétrie.
-import { BLACK, WHITE } from './board.js';
+import { BLACK, WHITE } from '../../js/board.js';
 
 export const PIECE_W = 8;
 

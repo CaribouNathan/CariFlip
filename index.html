@@ -54,7 +54,7 @@
     <div class="scroll">
       <button class="profile-chip" id="profile-chip"><span class="avatar" id="chip-avatar"></span><span class="chip-name" id="chip-name"></span><svg class="chev"><use href="#i-chev"/></svg></button>
       <header class="hero">
-        <img class="logo" id="logo" src="icons/icon.svg" alt="" width="88" height="88" draggable="false">
+        <img class="logo" id="logo" data-logo src="icons/icon.svg" alt="" width="88" height="88" draggable="false">
         <h1>CariFlip</h1>
         <p class="tagline" data-i18n="home.tagline"></p>
       </header>
@@ -110,7 +110,7 @@
     </div>
   </section>
 
-  <!-- Réglages -->
+  <!-- Statistiques -->
   <section class="screen" id="stats" hidden>
     <nav class="navbar">
       <button class="nav-btn" data-back><svg><use href="#i-back"/></svg><span data-i18n="nav.home"></span></button>
@@ -124,7 +124,7 @@
   <section class="screen" id="welcome" hidden>
     <div class="scroll">
       <header class="hero compact">
-        <img class="logo" src="icons/icon.svg" alt="" width="72" height="72" draggable="false">
+        <img class="logo" data-logo src="icons/icon.svg" alt="" width="72" height="72" draggable="false">
         <h1 data-i18n="welcome.title"></h1>
         <p class="tagline" data-i18n="welcome.sub"></p>
       </header>
@@ -211,6 +211,7 @@
     </div>
   </section>
 
+  <!-- Réglages -->
   <section class="screen" id="settings" hidden>
     <nav class="navbar">
       <button class="nav-btn" data-back><svg><use href="#i-back"/></svg><span data-i18n="nav.home"></span></button>
@@ -249,6 +250,28 @@
         </label>
       </div>
       <p class="footnote" data-i18n="set.note"></p>
+
+      <h3 class="section-title" data-i18n="set.accent"></h3>
+      <div class="group pad">
+        <div class="swatches" id="accent-swatches" role="radiogroup"></div>
+      </div>
+
+      <h3 class="section-title" data-i18n="set.logo"></h3>
+      <div class="group">
+        <div class="row logo-row">
+          <img class="logo-preview" id="logo-preview" data-logo src="icons/icon.svg" alt="" width="44" height="44" draggable="false">
+          <span class="row-text"><span class="row-title" data-i18n="set.logoTitle"></span><span class="row-sub" data-i18n="set.logoSub"></span></span>
+        </div>
+        <button class="row" id="logo-pick"><span class="row-text"><span class="row-title accent-text" data-i18n="set.logoChange"></span></span></button>
+        <button class="row" id="logo-reset" hidden><span class="row-text"><span class="row-title accent-text" data-i18n="set.logoReset"></span></span></button>
+        <input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+      </div>
+
+      <h3 class="section-title" data-i18n="set.about"></h3>
+      <div class="group">
+        <div class="row stat-row"><span class="row-title" data-i18n="set.version"></span><span class="stat-val" id="about-version"></span></div>
+        <div class="row stat-row"><span class="row-title">Caribou Labs</span><span class="stat-val" id="about-year"></span></div>
+      </div>
     </div>
   </section>
 
