@@ -38,16 +38,16 @@ export const formatCode = (c) => (c ? c.match(/.{1,4}/g).join('-') : '');
 
 const deviceDefaults = () => ({
   id: randId(8), lang: 'auto', theme: 'auto', sound: true, soundInSilent: true, haptics: true,
-  accent: 'blue', logo: null,
+  accent: 'blue',
   profile: null, lastLevel: {}, code: null, rev: 0, lastSync: 0, legacy: null,
 });
-const emptyFamily = () => ({ profiles: {} });
+const emptyFamily = () => ({ profiles: {}, grids: {} });
 
 export function newProfile(name, avatar) {
   const now = Date.now();
   return {
     id: randId(10), name, avatar, created: now, updated: now, deleted: false,
-    solved: {}, daily: {}, records: [], ta: [], stats: {}, maxes: {}, tutorialSeen: false,
+    solved: {}, daily: {}, custom: {}, records: [], ta: [], stats: {}, maxes: {}, tutorialSeen: false,
   };
 }
 
@@ -134,13 +134,28 @@ export function switchProfile(id) {
 }
 
 // ---------- Fusion ----------
+// Résultat d'une grille : { hints, len, path, plen, late }
+//  - hints : le moins d'indices utilisés ; len : le moins de tuiles inversées ;
+//  - path / plen : le trait gagnant enregistré (pour le revoir) et son nombre de tuiles :
+//    on garde le plus court des traits connus ;
+//  - late (Puzzle du jour) : grille rattrapée après sa date ; vrai seulement si elle n'a
+//    jamais été résolue le jour même.
 const better = (a, b) => {
-  // résultat d'un niveau : le moins d'indices, puis le trait le plus court
   if (!a) return b; if (!b) return a;
   const out = { hints: Math.min(a.hints, b.hints) };
   const la = a.len ?? Infinity, lb = b.len ?? Infinity;
   if (Math.min(la, lb) !== Infinity) out.len = Math.min(la, lb);
+  const pa = a.path ? a : null, pb = b.path ? b : null;
+  const pick = !pa ? pb : !pb ? pa : (pa.plen < pb.plen || (pa.plen === pb.plen && pa.path <= pb.path)) ? pa : pb;
+  if (pick) { out.path = pick.path; out.plen = pick.plen; }
+  if (a.late && b.late) out.late = true;
   return out;
+};
+const result = (hints, len, path, late) => {
+  const r = { hints, len };
+  if (path) { r.path = path; r.plen = len; }
+  if (late) r.late = true;
+  return r;
 };
 const mergeResults = (A = {}, B = {}) => {
   const out = {};
@@ -173,6 +188,7 @@ export function mergeProfile(a, b) {
     created: Math.min(a.created, b.created), updated: Math.max(a.updated, b.updated),
     solved: mergeResults(a.solved, b.solved),
     daily: mergeResults(a.daily, b.daily),
+    custom: mergeResults(a.custom, b.custom),
     records: mergeTop(a.records, b.records, 3),
     ta: mergeTop(a.ta, b.ta, 5),
     stats, maxes,
@@ -180,9 +196,20 @@ export function mergeProfile(a, b) {
   };
 }
 const tombstone = (p) => ({ id: p.id, name: p.name, avatar: p.avatar, created: p.created, updated: p.updated, deleted: true,
-  solved: {}, daily: {}, records: [], ta: [], stats: {}, maxes: {}, tutorialSeen: false });
+  solved: {}, daily: {}, custom: {}, records: [], ta: [], stats: {}, maxes: {}, tutorialSeen: false });
+// Grilles créées ou reçues (communes à la famille), rangées par leur code.
+// Nom et suppression : la modification la plus récente l'emporte.
+function mergeGrid(a, b) {
+  if (!a) return b; if (!b) return a;
+  const meta = (b.updated > a.updated || (b.updated === a.updated && JSON.stringify(b.name) > JSON.stringify(a.name))) ? b : a;
+  const first = (b.created < a.created || (b.created === a.created && String(b.author) < String(a.author))) ? b : a;
+  return { code: a.code, name: meta.name, deleted: !!meta.deleted, author: first.author ?? null,
+    created: Math.min(a.created, b.created), updated: Math.max(a.updated, b.updated) };
+}
 export function mergeFamily(A, B) {
-  const out = { profiles: {} };
+  const out = { profiles: {}, grids: {} };
+  const ga = (A && A.grids) || {}, gb = (B && B.grids) || {};
+  for (const k of new Set([...Object.keys(ga), ...Object.keys(gb)])) out.grids[k] = mergeGrid(ga[k], gb[k]);
   const pa = (A && A.profiles) || {}, pb = (B && B.profiles) || {};
   for (const id of new Set([...Object.keys(pa), ...Object.keys(pb)])) out.profiles[id] = mergeProfile(pa[id], pb[id]);
   return out;
@@ -207,14 +234,15 @@ function canon(v) {
 
 // ---------- Accès « store » (compatibilité avec le reste du jeu) ----------
 // Réglages → appareil ; progression → profil actif.
-const P = () => currentProfile() || { solved: {}, daily: {}, records: [], ta: [], stats: {}, maxes: {} };
+const P = () => currentProfile() || { solved: {}, daily: {}, custom: {}, records: [], ta: [], stats: {}, maxes: {} };
 export const store = {};
-for (const k of ['lang', 'theme', 'sound', 'soundInSilent', 'haptics', 'accent', 'logo']) {
+for (const k of ['lang', 'theme', 'sound', 'soundInSilent', 'haptics', 'accent']) {
   Object.defineProperty(store, k, { get: () => device[k], set: (v) => { device[k] = v; }, enumerable: true });
 }
 Object.defineProperties(store, {
   solved: { get: () => P().solved },
   daily: { get: () => P().daily },
+  custom: { get: () => (P().custom ||= {}) },
   records: { get: () => P().records },
   ta: { get: () => P().ta },
   best: { get: () => Math.max(0, ...P().records.map((r) => r.score)) },
@@ -235,16 +263,64 @@ function totals(p) {
 
 // ---------- Progression ----------
 // len : nombre de tuiles inversées par le trait gagnant (médaille du trait optimal).
-export function markSolved(n, hintsUsed, len) {
+// path : le trait gagnant (encodé, voir encodePath), gardé pour pouvoir le revoir.
+export function markSolved(n, hintsUsed, len, path) {
   const p = currentProfile(); if (!p) return;
-  p.solved[n] = better(p.solved[n], { hints: hintsUsed, len });
+  p.solved[n] = better(p.solved[n], result(hintsUsed, len, path));
   save();
 }
-export function markDaily(date, hintsUsed, len) {
+// late : grille d'un jour passé, rattrapée depuis le calendrier (ne compte pas dans la série).
+export function markDaily(date, hintsUsed, len, path, late) {
   const p = currentProfile(); if (!p) return;
   const first = !p.daily[date];
-  p.daily[date] = better(p.daily[date], { hints: hintsUsed, len });
+  p.daily[date] = better(p.daily[date], result(hintsUsed, len, path, late));
   if (first) bumpStat('dailyDone', 1, false);
+  save();
+}
+export function markCustom(code, hintsUsed, len, path) {
+  const p = currentProfile(); if (!p) return;
+  (p.custom ||= {})[code] = better(p.custom[code], result(hintsUsed, len, path));
+  save();
+}
+
+// Trait compact : case de départ (deux caractères en base 36) puis une lettre par pas (R, L, D, U).
+export function encodePath(path) {
+  if (!path || !path.length) return '';
+  let s = path[0][0].toString(36) + path[0][1].toString(36);
+  for (let i = 1; i < path.length; i++) {
+    const dx = path[i][0] - path[i - 1][0], dy = path[i][1] - path[i - 1][1];
+    s += dx === 1 ? 'R' : dx === -1 ? 'L' : dy === 1 ? 'D' : 'U';
+  }
+  return s;
+}
+export function decodePath(s) {
+  if (!s || s.length < 2) return null;
+  let x = parseInt(s[0], 36), y = parseInt(s[1], 36);
+  if (Number.isNaN(x) || Number.isNaN(y)) return null;
+  const out = [[x, y]];
+  for (const c of s.slice(2)) {
+    if (c === 'R') x++; else if (c === 'L') x--; else if (c === 'D') y++; else if (c === 'U') y--; else return null;
+    out.push([x, y]);
+  }
+  return out;
+}
+
+// ---------- Grilles de l'éditeur (communes à la famille) ----------
+export const grids = () => Object.values(family.grids || {}).filter((g) => !g.deleted).sort((a, b) => b.created - a.created);
+export const getGrid = (code) => { const g = (family.grids || {})[code]; return g && !g.deleted ? g : null; };
+export function addGrid(code, name, author = null) {
+  family.grids ||= {};
+  const now = Date.now(), old = family.grids[code];
+  family.grids[code] = old
+    ? { ...old, name: old.deleted ? name : old.name, deleted: false, updated: Math.max(now, old.updated + 1) }
+    : { code, name, author, created: now, updated: now, deleted: false };
+  save();
+  return family.grids[code];
+}
+export function removeGrid(code) {
+  const g = (family.grids || {})[code];
+  if (!g) return;
+  family.grids[code] = { ...g, deleted: true, updated: Math.max(Date.now(), g.updated + 1) };
   save();
 }
 export const isSolvedLevel = (n) => !!P().solved[n];
@@ -287,15 +363,17 @@ export function addTimeRecord(entry) {
 // Série du Puzzle du jour : jours consécutifs résolus jusqu'à aujourd'hui (ou hier).
 export const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export function dailyStreak(today = new Date()) {
-  const done = P().daily;
+  const all = P().daily;
+  const done = (k) => all[k] && !all[k].late;   // une grille rattrapée ne compte pas
   const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  if (!done[dayKey(d)]) d.setDate(d.getDate() - 1);
+  if (!done(dayKey(d))) d.setDate(d.getDate() - 1);
   let n = 0;
-  while (done[dayKey(d)]) { n++; d.setDate(d.getDate() - 1); }
+  while (done(dayKey(d))) { n++; d.setDate(d.getDate() - 1); }
   return n;
 }
 export function bestDailyStreak() {
-  const days = Object.keys(P().daily).sort();
+  const all = P().daily;
+  const days = Object.keys(all).filter((k) => !all[k].late).sort();
   let best = 0, run = 0, prev = null;
   for (const k of days) {
     const [y, m, dd] = k.split('-').map(Number);

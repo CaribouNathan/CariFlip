@@ -3,16 +3,18 @@ import { BoardView } from './renderer.js';
 import { PuzzleMode, MAX_HINTS } from './puzzle.js';
 import { ChallengeMode, MODES, gradeFor } from './challenge.js';
 import { LEVEL_COUNT, CHAPTER_SIZE, levelParams, SECRET_LEVEL, dailyLevel, rushLevel, rushParams } from './generator.js';
-import { store, save, markSolved, markDaily, isSolvedLevel, isUnlocked, solvedCount, highestSolved, addRecord, addTimeRecord, secretUnlocked, bumpStat, maxStat,
+import { store, save, markSolved, markDaily, markCustom, encodePath, decodePath, grids, getGrid, addGrid, removeGrid, isSolvedLevel, isUnlocked, solvedCount, highestSolved, addRecord, addTimeRecord, secretUnlocked, bumpStat, maxStat,
          profiles, currentProfile, createProfile, updateProfile, deleteProfile, switchProfile, getDevice, getFamily, mergeFamily, adoptFamily,
          normalizeCode, isValidCode, formatCode, dayKey, dailyStreak, bestDailyStreak, onFamilyChange } from './storage.js';
 import { syncConfigured, syncNow, startSync, onSyncState, syncState, fetchFamily } from './sync.js';
-import { optimalForLevel, minFlips } from './optimal.js';
+import { optimalForLevel, minFlips, boardLines, flipsOf } from './optimal.js';
+import { solveBoard, checkBoard } from './solve-board.js';
+import { encodeGrid, decodeGrid, formatGridCode, normalizeGridCode, boardFromRows, MIN_SIZE, MAX_SIZE } from './gridcode.js';
 import { sfx, haptic, hapticsAvailable, silentOverrideAvailable, applyAudioSession, IS_IOS } from './audio.js';
-import { makeBoard, set, applyPath, isTile, at, dirtyRowCount } from './board.js';
-import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange } from './i18n.js';
+import { makeBoard, set, applyPath, isTile, at, dirtyRowCount, cloneBoard } from './board.js';
+import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange, locale } from './i18n.js';
 
-export const VERSION = '1.10.0';
+export const VERSION = '1.11.0';
 const $ = (s) => document.querySelector(s);
 const megaEl = document.querySelector('#mega');
 
@@ -37,7 +39,7 @@ const DEFAULT_LOGO = season ? `icons/icon-${season}.svg` : 'icons/icon.svg';
 const fmt = (n) => fmtNum(n);
 
 // ---------- Navigation ----------
-const screens = ['welcome', 'home', 'profiles', 'profile-edit', 'rush', 'stats', 'settings', 'levels', 'game', 'cmenu', 'challenge', 'howto'];
+const screens = ['welcome', 'home', 'profiles', 'profile-edit', 'rush', 'stats', 'calendar', 'custom', 'editor', 'settings', 'levels', 'game', 'cmenu', 'challenge', 'howto'];
 const stack = ['home'];
 const hooks = {};
 const current = () => stack[stack.length - 1];
@@ -115,6 +117,8 @@ function refreshHome() {
   const rushBest = store.ta[0]?.score || 0;
   $('#rush-sub').textContent = rushBest ? t('home.rushBest', { n: rushBest }) : t('home.rushSub');
   $('#profiles-sub').textContent = t('home.profilesSub', { n: profiles().length });
+  const ng = grids().length;
+  $('#custom-sub').textContent = ng ? t('home.customSub', { n: ng }) : t('home.customNone');
 }
 hooks.home = { enter: refreshHome };
 $('#version').textContent = VERSION;
@@ -127,6 +131,7 @@ $('#go-challenge').addEventListener('click', () => go('cmenu'));
 $('#go-daily').addEventListener('click', () => go('game', 'daily'));
 $('#go-rush').addEventListener('click', () => go('rush'));
 $('#go-profiles').addEventListener('click', () => go('profiles'));
+$('#go-custom').addEventListener('click', () => go('custom'));
 $('#profile-chip').addEventListener('click', () => go('profiles'));
 $('#go-howto').addEventListener('click', () => go('howto'));
 $('#go-settings').addEventListener('click', () => go('settings'));
@@ -198,39 +203,9 @@ function setAccent(v) {
   haptic(8);
 }
 
-// ---------- Logo de l'app (propre à l'appareil) ----------
-const logoSrc = () => store.logo || DEFAULT_LOGO;
-function applyLogo() {
-  document.querySelectorAll('[data-logo]').forEach((img) => { img.src = logoSrc(); });
-  $('#logo-reset').hidden = !store.logo;
-}
-// L'image choisie est ramenée à un carré de 256 px (PNG) : léger, et identique partout.
-function readLogo(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const S = 256, cv = document.createElement('canvas');
-        cv.width = cv.height = S;
-        const w = img.naturalWidth || S, h = img.naturalHeight || S, k = Math.max(S / w, S / h);
-        cv.getContext('2d').drawImage(img, (S - w * k) / 2, (S - h * k) / 2, w * k, h * k);
-        resolve(cv.toDataURL('image/png'));
-      } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image')); };
-    img.src = url;
-  });
-}
-$('#logo-pick').addEventListener('click', () => $('#logo-file').click());
-$('#logo-file').addEventListener('change', async (e) => {
-  const file = e.target.files && e.target.files[0];
-  e.target.value = '';
-  if (!file) return;
-  try { store.logo = await readLogo(file); save(false); applyLogo(); haptic(15); }
-  catch { openSheet({ title: t('set.logoError'), actions: [{ label: t('egg.ok'), primary: true }] }); }
-});
-$('#logo-reset').addEventListener('click', () => { store.logo = null; save(false); applyLogo(); haptic(10); });
+// Logo affiché (celui de la saison les jours de fête).
+const logoSrc = () => DEFAULT_LOGO;
+function applyLogo() { document.querySelectorAll('[data-logo]').forEach((img) => { img.src = logoSrc(); }); }
 $('#about-version').textContent = VERSION;
 $('#about-year').textContent = '© ' + new Date().getFullYear();
 hooks.settings = { enter: renderAccents };
@@ -350,9 +325,12 @@ const puzzle = new PuzzleMode(puzzleView, {
     const st = $('#puzzle-stage');
     st.classList.remove('shake'); void st.offsetWidth; st.classList.add('shake');
   },
-  onWin: (n, hints, flips, level) => {
-    if (level.daily) return dailyWon(level, hints, flips);
-    markSolved(n, hints, flips);
+  onWin: (n, hints, flips, level, path) => {
+    const enc = encodePath(path);
+    if (level.daily) return dailyWon(level, hints, flips, enc);
+    if (level.custom) return customWon(level, hints, flips, enc);
+    markSolved(n, hints, flips, enc);
+    refreshReplay();
     const hasNext = n < LEVEL_COUNT || (n === LEVEL_COUNT && isUnlocked(SECRET_LEVEL));
     const actions = [];
     if (hasNext) actions.push({ label: t('game.next'), primary: true, run: () => loadLevel(n + 1) });
@@ -385,55 +363,408 @@ function medalLine(flips, optimal) {
     : `</p><p class="medal-line muted">${esc(t('game.notOptimal', { n: flips, o: optimal }))}`;
 }
 
+// ---------- Revoir sa solution ----------
+// L'écran #game sert aux niveaux, au Puzzle du jour et aux grilles de l'éditeur.
+let puzzleCtx = 'level';   // 'level' | 'daily' | 'custom'
+function currentResult() {
+  if (puzzleCtx === 'daily') return store.daily[dailyKey];
+  if (puzzleCtx === 'custom') return store.custom[customCode];
+  return store.solved[currentLevel];
+}
+function refreshReplay() { $('#replay-btn').hidden = !currentResult()?.path; }
+$('#replay-btn').addEventListener('click', () => {
+  if (puzzle.replaying) { puzzle.stopReplay(); statusEl.textContent = t('game.intro'); statusEl.className = ''; return; }
+  const res = currentResult();
+  const path = res && decodePath(res.path);
+  if (!path || puzzleView.enabled === false) return;
+  statusEl.textContent = t('game.replaying', { n: res.plen }); statusEl.className = 'hint';
+  haptic(10);
+  puzzle.replay(path, () => { statusEl.textContent = t('game.intro'); statusEl.className = ''; });
+});
+// Barre du bas selon le contexte : niveaux (précédent / taille / suivant), jour (veille / calendrier / lendemain),
+// grille de l'éditeur (partager).
+function setBar({ size = '', prev = null, next = null, cal = '', share = false }) {
+  const pv = $('#prev-level'), nx = $('#next-level');
+  $('#size-label').textContent = size; $('#size-label').hidden = !!cal || share;
+  $('#cal-btn').hidden = !cal; $('#cal-btn-label').textContent = cal;
+  $('#share-btn').hidden = !share;
+  pv.style.visibility = prev === null ? 'hidden' : ''; nx.style.visibility = next === null ? 'hidden' : '';
+  pv.disabled = !prev || prev.disabled; nx.disabled = !next || next.disabled;
+  pv.querySelector('span').textContent = prev?.label ?? ''; nx.querySelector('span').textContent = next?.label ?? '';
+}
+
 // ---------- Puzzle du jour ----------
-let puzzleCtx = 'level';   // 'level' ou 'daily' : l'écran #game sert aux deux
+const DAILY_FIRST = '2026-01-01';            // première grille accessible depuis le calendrier
+let dailyKey = dayKey();
 let dailyOptimal = null;
-function openDaily() {
+const keyDate = (key) => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d); };
+const shiftDay = (key, by) => { const d = keyDate(key); d.setDate(d.getDate() + by); return dayKey(d); };
+const shortDate = (key) => keyDate(key).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
+function openDaily(key = dailyKey) {
   puzzleCtx = 'daily';
-  const key = dayKey();
+  const today = dayKey();
+  if (key > today || key < DAILY_FIRST) key = today;
+  dailyKey = key;
   const lvl = dailyLevel(key);
   dailyOptimal = minFlips(lvl.board, 3000);
   if (typeof dailyOptimal !== 'number') dailyOptimal = null;
-  $('#game-title').textContent = t('daily.title');
+  $('#game-title').textContent = key === today ? t('daily.title') : t('daily.titleOn', { d: shortDate(key) });
   $('#game-back').textContent = t('nav.home');
-  $('#size-label').textContent = `${lvl.board.w - 2} × ${lvl.board.h - 2}`;
-  $('#prev-level').hidden = $('#next-level').hidden = true;
+  setBar({
+    cal: key === today ? t('daily.today') : shortDate(key),
+    prev: { label: '', disabled: key <= DAILY_FIRST },
+    next: { label: '', disabled: key >= today },
+  });
   puzzle.load(lvl);
-  refreshHint();
+  refreshHint(); refreshReplay();
 }
-function dailyWon(level, hints, flips) {
-  markDaily(level.key, hints, flips);
-  const streak = dailyStreak();
-  const optimal = dailyOptimal;
+function dailyWon(level, hints, flips, enc) {
+  const late = level.key !== dayKey();
+  markDaily(level.key, hints, flips, enc, late);
+  refreshReplay();
+  const stillLate = !!store.daily[level.key]?.late;
   openSheet({
     badge: `<svg style="color:var(--${hints ? 'success' : 'stroke'})"><use href="#i-${hints ? 'check' : 'star'}"/></svg>`,
-    title: t('daily.winTitle'),
-    html: esc(t('daily.streak', { n: streak })) + medalLine(flips, optimal) + `</p><p class="medal-line muted">${esc(t('daily.again'))}`,
+    title: stillLate ? t('daily.winLate') : t('daily.winTitle'),
+    html: esc(stillLate ? t('daily.lateNote') : t('daily.streak', { n: dailyStreak() })) + medalLine(flips, dailyOptimal)
+      + (late ? '' : `</p><p class="medal-line muted">${esc(t('daily.again'))}`),
     actions: [
       { label: t('rush.home'), primary: true, run: () => history.back() },
+      { label: t('cal.title'), run: () => go('calendar') },
       { label: t('game.replay'), run: () => openDaily() },
     ],
     locked: true,
   });
 }
+$('#cal-btn').addEventListener('click', () => go('calendar'));
+
+// ---------- Calendrier ----------
+let calYear = 0, calMonth = 0;
+function renderCalendar() {
+  const today = dayKey(), first = new Date(calYear, calMonth, 1);
+  $('#cal-month').textContent = first.toLocaleDateString(locale(), { month: 'long', year: 'numeric' });
+  // Semaine commençant le lundi.
+  const monday = new Date(2024, 0, 1);
+  $('#cal-week').innerHTML = [0, 1, 2, 3, 4, 5, 6].map((i) => { const d = new Date(monday); d.setDate(1 + i); return `<span>${d.toLocaleDateString(locale(), { weekday: 'narrow' })}</span>`; }).join('');
+  const lead = (first.getDay() + 6) % 7, days = new Date(calYear, calMonth + 1, 0).getDate();
+  const grid = $('#cal-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < lead; i++) grid.appendChild(document.createElement('span'));
+  let solved = 0, late = 0;
+  for (let d = 1; d <= days; d++) {
+    const key = dayKey(new Date(calYear, calMonth, d));
+    const res = store.daily[key];
+    const b = document.createElement('button');
+    b.className = 'cal-day';
+    b.innerHTML = `<span>${d}</span>`;
+    if (key > today || key < DAILY_FIRST) b.disabled = true;
+    if (key === today) b.classList.add('today');
+    if (key === dailyKey && puzzleCtx === 'daily') b.classList.add('picked');
+    if (res) {
+      b.classList.add('done');
+      const kind = res.late ? 'late' : res.hints === 0 ? 'star' : 'check';
+      if (res.late) late++; else solved++;
+      b.innerHTML += `<svg class="lg ${kind}"><use href="#i-${kind === 'late' ? 'clock' : kind}"/></svg>`;
+    }
+    b.setAttribute('aria-label', keyDate(key).toLocaleDateString(locale(), { day: 'numeric', month: 'long' }) + (res ? ' ✓' : ''));
+    b.addEventListener('click', () => pickDay(key));
+    grid.appendChild(b);
+  }
+  $('#cal-summary').textContent = t('cal.summary', { n: solved, late, streak: dailyStreak() });
+  const firstMonth = keyDate(DAILY_FIRST), now = new Date();
+  $('#cal-prev').disabled = calYear * 12 + calMonth <= firstMonth.getFullYear() * 12 + firstMonth.getMonth();
+  $('#cal-next').disabled = calYear * 12 + calMonth >= now.getFullYear() * 12 + now.getMonth();
+}
+function pickDay(key) {
+  dailyKey = key;
+  haptic(10);
+  // Le calendrier s'ouvre depuis le Puzzle du jour : on y revient, sur le jour choisi.
+  puzzleCtx = 'daily';
+  history.back();
+}
+$('#cal-prev').addEventListener('click', () => { if (--calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); });
+$('#cal-next').addEventListener('click', () => { if (++calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); });
+hooks.calendar = {
+  enter: () => {
+    const d = keyDate(puzzleCtx === 'daily' ? dailyKey : dayKey());
+    calYear = d.getFullYear(); calMonth = d.getMonth();
+    renderCalendar();
+  },
+};
+
+// ---------- Grilles de l'éditeur ----------
+let customCode = null, customOptimal = null;
+const levelCache = new Map();
+// Construit le niveau d'un code (avec sa solution la plus courte) ; null si le code est invalide ou insoluble.
+// (undefined : la recherche a dépassé le temps alloué.) La solution trouvée est gardée sur l'appareil :
+// une grille très chargée peut demander quelques secondes de calcul, une seule fois.
+const SOL_KEY = 'cariflip.solutions';
+function solutionCache() { try { return JSON.parse(localStorage.getItem(SOL_KEY) || '{}'); } catch { return {}; } }
+function rememberSolution(code, solution) {
+  try { const c = solutionCache(); c[code] = encodePath(solution); localStorage.setItem(SOL_KEY, JSON.stringify(c)); } catch { /* ignoré */ }
+}
+function customLevel(code, budgetMs = 12000) {
+  if (levelCache.has(code)) return levelCache.get(code);
+  const rows = decodeGrid(code);
+  if (!rows) return null;
+  const board = boardFromRows(rows);
+  if (dirtyRowCount(board) === 0) return null;
+  const lines = boardLines(board);
+  let solution = decodePath(solutionCache()[code]);
+  if (solution && !checkBoard(lines, solution)) solution = null;
+  if (!solution) {
+    solution = solveBoard(lines, { budgetMs });
+    if (!solution) return solution;
+    rememberSolution(code, solution);
+  }
+  const lvl = { n: 'custom', custom: true, code, board, solution, optimal: flipsOf(board, solution) };
+  levelCache.set(code, lvl);
+  return lvl;
+}
+function openCustom(code = customCode) {
+  const lvl = customLevel(code), g = getGrid(code);
+  if (!lvl || !g) { history.back(); return; }
+  puzzleCtx = 'custom'; customCode = code; customOptimal = lvl.optimal;
+  $('#game-title').textContent = g.name;
+  $('#game-back').textContent = t('custom.title');
+  setBar({ share: true });
+  puzzle.load(lvl);
+  refreshHint(); refreshReplay();
+}
+function customWon(level, hints, flips, enc) {
+  markCustom(level.code, hints, flips, enc);
+  refreshReplay();
+  openSheet({
+    badge: `<svg style="color:var(--${hints ? 'success' : 'stroke'})"><use href="#i-${hints ? 'check' : 'star'}"/></svg>`,
+    title: t('custom.winTitle'),
+    html: esc(hints ? t('game.winHints', { n: hints }) : t('game.winStar')) + medalLine(flips, customOptimal),
+    actions: [
+      { label: t('custom.backList'), primary: true, run: () => history.back() },
+      { label: t('game.replay'), run: () => openCustom() },
+      { label: t('custom.share'), run: () => shareGrid(level.code) },
+    ],
+    locked: true,
+  });
+}
+const shareLink = (code, name) => `${location.origin}${location.pathname}?g=${code}${name ? '&n=' + encodeURIComponent(name) : ''}`;
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* repli ci-dessous */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta);
+    ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok;
+  } catch { return false; }
+}
+function shareGrid(code) {
+  const g = getGrid(code);
+  if (!g) return;
+  const link = shareLink(code, g.name);
+  const actions = [
+    { label: t('custom.copyCode'), primary: true, keep: true, run: async () => { await copyText(formatGridCode(code)); flashBtn(0, t('sync.copied')); } },
+    { label: t('custom.copyLink'), keep: true, run: async () => { await copyText(link); flashBtn(1, t('sync.copied')); } },
+  ];
+  if (navigator.share) actions.push({ label: t('custom.send'), keep: true, run: () => navigator.share({ title: 'CariFlip', text: t('custom.shareText', { name: g.name, code: formatGridCode(code) }), url: link }).catch(() => {}) });
+  actions.push({ label: t('custom.close') });
+  openSheet({
+    title: g.name,
+    html: `${esc(t('custom.shareBody'))}</p><p class="code-text share-code">${esc(formatGridCode(code))}`,
+    actions,
+  });
+  haptic(10);
+}
+function flashBtn(i, text) {
+  const b = $('#sheet-actions').children[i];
+  if (!b) return;
+  const old = b.textContent; b.textContent = text; haptic(8);
+  setTimeout(() => { if (b.isConnected) b.textContent = old; }, 1200);
+}
+$('#share-btn').addEventListener('click', () => shareGrid(customCode));
+
+// Reçoit un code (saisi ou venu d'un lien) : vérifie la grille, l'ajoute à la liste. Renvoie le code ou un message d'erreur.
+function importGrid(raw, name) {
+  const code = normalizeGridCode(raw);
+  if (!decodeGrid(code)) return { error: t('custom.badCode') };
+  const lvl = customLevel(code);
+  if (!lvl) return { error: t(lvl === undefined ? 'editor.tooHard' : 'custom.unsolvable') };
+  const existing = getGrid(code);
+  if (!existing) addGrid(code, (name || '').trim().slice(0, 24) || t('custom.received', { c: code.slice(0, 4) }), null);
+  return { code };
+}
+function renderCustom() {
+  const list = grids(), box = $('#custom-list');
+  const fam = getFamily().profiles;
+  if (!list.length) { box.innerHTML = `<p class="empty">${esc(t('custom.empty'))}</p>`; return; }
+  box.innerHTML = list.map((g) => {
+    const rows = decodeGrid(g.code);
+    const res = store.custom[g.code];
+    const author = g.author && fam[g.author] && !fam[g.author].deleted ? fam[g.author] : null;
+    const sub = `${rows ? `${rows[0].length} × ${rows.length}` : '?'} · ${author ? t('custom.by', { name: author.name }) : t('custom.receivedSub')}`;
+    return `<div class="row custom-row" data-code="${g.code}" role="button" tabindex="0">
+      ${rows ? miniGrid(rows) : ''}
+      <span class="row-text"><span class="row-title">${esc(g.name)}</span><span class="row-sub">${esc(sub)}</span></span>
+      ${res ? `<svg class="lg ${res.hints === 0 ? 'star' : 'check'}"><use href="#i-${res.hints === 0 ? 'star' : 'check'}"/></svg>` : ''}
+      <button class="edit-btn" data-more="${g.code}" aria-label="${esc(t('custom.more'))}"><svg><use href="#i-more"/></svg></button>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.custom-row').forEach((row) => row.addEventListener('click', (e) => {
+    const code = row.dataset.code;
+    if (e.target.closest('[data-more]')) { gridMenu(code); return; }
+    go('game', { custom: code });
+  }));
+}
+// Vignette de la grille (SVG en ligne).
+function miniGrid(rows) {
+  const W = rows[0].length, H = rows.length, s = 40 / Math.max(W, H);
+  let cells = '';
+  rows.forEach((r, y) => [...r].forEach((c, x) => {
+    if (c === 'X') return;
+    cells += `<rect x="${(x * s + 0.5).toFixed(2)}" y="${(y * s + 0.5).toFixed(2)}" width="${(s - 1).toFixed(2)}" height="${(s - 1).toFixed(2)}" rx="${(s * 0.18).toFixed(2)}" fill="var(--tile-${c === 'B' ? 'dark' : 'light'})"/>`;
+  }));
+  return `<svg class="mini-grid" viewBox="0 0 ${(W * s).toFixed(2)} ${(H * s).toFixed(2)}" aria-hidden="true">${cells}</svg>`;
+}
+function gridMenu(code) {
+  const g = getGrid(code);
+  if (!g) return;
+  openSheet({
+    title: g.name,
+    actions: [
+      { label: t('custom.share'), primary: true, run: () => shareGrid(code) },
+      { label: t('custom.rename'), run: () => renameGrid(code) },
+      { label: t('custom.delete'), danger: true, run: () => openSheet({
+        title: t('custom.deleteTitle', { name: g.name }), body: t('custom.deleteBody'),
+        actions: [{ label: t('pe.confirm'), danger: true, run: () => { removeGrid(code); renderCustom(); } }, { label: t('pe.cancel'), primary: true }],
+      }) },
+      { label: t('pe.cancel') },
+    ],
+  });
+}
+function nameSheet({ title, body, value, okLabel, onOk }) {
+  openSheet({
+    title,
+    html: `${esc(body)}</p><input class="text-input sheet-input" id="grid-name" maxlength="24" autocomplete="off" placeholder="${esc(t('custom.namePh'))}" value="${esc(value)}"><p hidden>`,
+    actions: [
+      { label: okLabel, primary: true, run: () => onOk($('#grid-name').value.trim().slice(0, 24)) },
+      { label: t('pe.cancel') },
+    ],
+  });
+}
+function renameGrid(code) {
+  const g = getGrid(code);
+  nameSheet({ title: t('custom.rename'), body: '', value: g.name, okLabel: t('pe.save'), onOk: (name) => {
+    if (name) { getFamily().grids[code] = { ...g, name, updated: Math.max(Date.now(), g.updated + 1) }; save(); }
+    renderCustom();
+  } });
+}
+$('#custom-new').addEventListener('click', () => go('editor'));
+$('#custom-import').addEventListener('click', () => {
+  openSheet({
+    title: t('custom.import'),
+    html: `${esc(t('custom.importBody'))}</p><input class="text-input code-input" id="grid-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" maxlength="48"><p class="form-error" id="grid-error" hidden>`,
+    actions: [
+      { label: t('custom.importBtn'), primary: true, keep: true, run: () => {
+        const r = importGrid($('#grid-code').value);
+        if (r.error) { const e = $('#grid-error'); e.textContent = r.error; e.hidden = false; return; }
+        closeSheet(); haptic(15); renderCustom();
+        lastGo = 0; go('game', { custom: r.code });
+      } },
+      { label: t('pe.cancel') },
+    ],
+  });
+  setTimeout(() => $('#grid-code')?.focus(), 50);
+});
+hooks.custom = { enter: renderCustom };
+
+// ---------- Éditeur ----------
+const ed = { w: 5, h: 5, cells: [], tool: 'B', view: null, painting: false };
+function edBoard() {
+  const b = makeBoard(ed.w + 2, ed.h + 2);
+  for (let y = 0; y < ed.h; y++) for (let x = 0; x < ed.w; x++) set(b, x + 1, y + 1, ed.cells[y][x]);
+  return b;
+}
+function edResize(w, h) {
+  w = Math.max(MIN_SIZE, Math.min(MAX_SIZE, w)); h = Math.max(MIN_SIZE, Math.min(MAX_SIZE, h));
+  const cells = [];
+  for (let y = 0; y < h; y++) { cells.push([]); for (let x = 0; x < w; x++) cells[y].push(ed.cells[y]?.[x] ?? 'W'); }
+  ed.w = w; ed.h = h; ed.cells = cells;
+  $('#ed-w').textContent = w; $('#ed-h').textContent = h;
+  $('#ed-w-minus').disabled = w <= MIN_SIZE; $('#ed-w-plus').disabled = w >= MAX_SIZE;
+  $('#ed-h-minus').disabled = h <= MIN_SIZE; $('#ed-h-plus').disabled = h >= MAX_SIZE;
+  ed.view.setBoard(edBoard());
+}
+function edPaint(e) {
+  const c = ed.view.cellAt(e, false);
+  if (!c) return;
+  const x = c[0] - 1, y = c[1] - 1;
+  if (x < 0 || y < 0 || x >= ed.w || y >= ed.h || ed.cells[y][x] === ed.tool) return;
+  ed.cells[y][x] = ed.tool;
+  ed.view.setBoard(edBoard());
+  haptic(4);
+}
+function setupEditor() {
+  if (!ed.view) {
+    const cv = $('#editor-canvas');
+    ed.view = new BoardView(cv, { interactive: false });
+    cv.addEventListener('pointerdown', (e) => { e.preventDefault(); ed.painting = true; cv.setPointerCapture?.(e.pointerId); edPaint(e); });
+    cv.addEventListener('pointermove', (e) => { if (ed.painting) (e.getCoalescedEvents?.() || [e]).forEach(edPaint); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((ev) => cv.addEventListener(ev, () => { ed.painting = false; }));
+    bindSeg('#seg-tool', ed.tool, (v) => { ed.tool = v; });
+    $('#ed-w-minus').addEventListener('click', () => edResize(ed.w - 1, ed.h));
+    $('#ed-w-plus').addEventListener('click', () => edResize(ed.w + 1, ed.h));
+    $('#ed-h-minus').addEventListener('click', () => edResize(ed.w, ed.h - 1));
+    $('#ed-h-plus').addEventListener('click', () => edResize(ed.w, ed.h + 1));
+  }
+  ed.view.refreshTheme();
+  edResize(ed.w, ed.h);
+}
+$('#ed-check').addEventListener('click', () => {
+  const rows = ed.cells.map((r) => r.join(''));
+  const tiles = rows.join('').replace(/X/g, '').length;
+  const fail = (msg) => openSheet({ title: t('editor.invalid'), body: msg, actions: [{ label: t('egg.ok'), primary: true }] });
+  if (tiles < 2) return fail(t('editor.empty'));
+  const board = boardFromRows(rows);
+  if (dirtyRowCount(board) === 0) return fail(t('editor.alreadySolved'));
+  const code = encodeGrid(rows);
+  // La recherche peut prendre quelques secondes sur une grande grille : on l'annonce avant de la lancer.
+  const btn = $('#ed-check');
+  btn.disabled = true; btn.textContent = t('editor.checking');
+  setTimeout(() => {
+    const lvl = customLevel(code, 8000);
+    btn.disabled = false; btn.textContent = t('editor.check');
+    if (current() !== 'editor') return;
+    if (lvl === undefined) return fail(t('editor.tooHard'));
+    if (!lvl) return fail(t('editor.unsolvable'));
+    const existing = getGrid(code);
+    sfx.clear(2); haptic(15);
+    nameSheet({
+      title: t('editor.valid'), body: t('editor.validBody', { n: lvl.optimal }), value: existing ? existing.name : '', okLabel: t('editor.save'),
+      onOk: (name) => {
+        const g = addGrid(code, name || t('editor.defaultName', { n: grids().length + 1 }), currentProfile()?.id ?? null);
+        if (name && g.name !== name) { getFamily().grids[code] = { ...g, name, updated: g.updated + 1 }; save(); }
+        ed.cells = []; // prochaine grille : feuille blanche
+        history.back();
+        setTimeout(() => shareGrid(code), 350);
+      },
+    });
+  }, 40);
+});
+hooks.editor = { enter: setupEditor };
 
 let currentLevel = 1;
 function loadLevel(n) {
   puzzleCtx = 'level';
   $('#game-back').textContent = t('nav.levels');
-  $('#prev-level').hidden = $('#next-level').hidden = false;
   currentLevel = n;
   store.lastLevel = n; save(false);
   $('#game-title').textContent = t('game.level', { n });
   const p = levelParams(n);
-  $('#size-label').textContent = `${p.W} × ${p.H}`;
-  const prev = $('#prev-level'), next = $('#next-level');
-  prev.disabled = n <= 1;
-  prev.querySelector('span').textContent = n > 1 ? n - 1 : '';
-  next.disabled = n >= SECRET_LEVEL || !isUnlocked(n + 1);
-  next.querySelector('span').textContent = n < SECRET_LEVEL && isUnlocked(n + 1) ? n + 1 : '';
+  const canNext = n < SECRET_LEVEL && isUnlocked(n + 1);
+  setBar({
+    size: `${p.W} × ${p.H}`,
+    prev: { label: n > 1 ? n - 1 : '', disabled: n <= 1 },
+    next: { label: canNext ? n + 1 : '', disabled: !canNext },
+  });
   puzzle.load(n);
-  refreshHint();
+  refreshHint(); refreshReplay();
 }
 function refreshHint() {
   const left = MAX_HINTS - puzzle.hints;
@@ -442,13 +773,16 @@ function refreshHint() {
   $('#hint-btn').disabled = left <= 0;
 }
 $('#hint-btn').addEventListener('click', () => { const before = puzzle.hints; puzzle.hint(); if (puzzle.hints > before) bumpStat('hints'); refreshHint(); });
-$('#prev-level').addEventListener('click', () => loadLevel(currentLevel - 1));
-$('#next-level').addEventListener('click', () => loadLevel(currentLevel + 1));
+$('#prev-level').addEventListener('click', () => (puzzleCtx === 'daily' ? openDaily(shiftDay(dailyKey, -1)) : loadLevel(currentLevel - 1)));
+$('#next-level').addEventListener('click', () => (puzzleCtx === 'daily' ? openDaily(shiftDay(dailyKey, 1)) : loadLevel(currentLevel + 1)));
 hooks.game = {
   enter: (n) => {
-    if (n === 'daily') openDaily();
+    if (n === 'daily') openDaily(dayKey());
+    else if (n && n.daily) openDaily(n.daily);
+    else if (n && n.custom) openCustom(n.custom);
     else if (n) loadLevel(n);
     else if (puzzleCtx === 'daily') openDaily();
+    else if (puzzleCtx === 'custom') openCustom();
     else loadLevel(currentLevel);
     puzzleView.start();
   },
@@ -876,7 +1210,8 @@ $('#pe-delete').addEventListener('click', () => {
 onFamilyChange(() => {
   if (!currentProfile()) { showWelcome(); return; }
   const id = current();
-  if (['home', 'levels', 'profiles', 'stats', 'cmenu'].includes(id)) hooks[id]?.enter?.();
+  if (['home', 'levels', 'profiles', 'stats', 'cmenu', 'custom'].includes(id)) hooks[id]?.enter?.();
+  if (id === 'calendar') renderCalendar();
   if (id === 'home') refreshHome();
 });
 
@@ -981,7 +1316,8 @@ function renderStats() {
     ])}
     ${group(t('stats.chapters'), chapters)}
     ${group(t('stats.daily'), [
-      row(t('stat.dailyDone'), n(Object.keys(store.daily).length)),
+      row(t('stat.dailyDone'), n(Object.values(store.daily).filter((r) => !r.late).length)),
+      row(t('stat.dailyLate'), n(Object.values(store.daily).filter((r) => r.late).length)),
       row(t('stat.streak'), n(dailyStreak())),
       row(t('stat.bestStreak'), n(bestDailyStreak())),
     ])}
@@ -1120,11 +1456,13 @@ onLangChange(() => {
   refreshInstallHint();
   const id = current();
   if (id === 'game') {
-    $('#game-title').textContent = puzzleCtx === 'daily' ? t('daily.title') : t('game.level', { n: currentLevel });
-    $('#game-back').textContent = t(puzzleCtx === 'daily' ? 'nav.home' : 'nav.levels');
+    if (puzzleCtx === 'level') $('#game-title').textContent = t('game.level', { n: currentLevel });
+    else if (puzzleCtx === 'daily') $('#game-title').textContent = dailyKey === dayKey() ? t('daily.title') : t('daily.titleOn', { d: shortDate(dailyKey) });
+    $('#game-back').textContent = t(puzzleCtx === 'daily' ? 'nav.home' : puzzleCtx === 'custom' ? 'custom.title' : 'nav.levels');
     if (puzzleView.board) puzzle.ui.onDirty(dirtyRowCount(puzzleView.board));
     statusEl.textContent = t('game.intro'); statusEl.className = '';
-  } else if (id !== 'challenge' && id !== 'rush' && id !== 'profile-edit') hooks[id]?.enter?.();
+  } else if (id === 'calendar') renderCalendar();
+  else if (!['challenge', 'rush', 'profile-edit', 'editor'].includes(id)) hooks[id]?.enter?.();
 });
 
 history.replaceState({ depth: 1 }, '');
@@ -1132,7 +1470,26 @@ history.replaceState({ depth: 1 }, '');
 // (tests automatisés : profil créé d'office si localStorage['cariflip.test-profile'] existe)
 try { if (!currentProfile() && localStorage.getItem('cariflip.test-profile')) { const leg = !!getDevice().legacy; const tp = createProfile('Test', '🦌'); if (!leg) tp.tutorialSeen = true; save(false); } } catch { /* ignoré */ }
 if (currentProfile()) { show('home'); refreshHome(); } else showWelcome();
+// Lien de partage (…/?g=CODE&n=Nom) : la grille est ajoutée puis ouverte, dès qu'un profil existe.
+(function openSharedLink() {
+  const q = new URLSearchParams(location.search);
+  let code = q.get('g'), name = q.get('n') || '';
+  try {
+    if (code) { sessionStorage.setItem('cariflip.link', JSON.stringify([code, name])); history.replaceState(history.state, '', location.pathname); }
+    else { const kept = JSON.parse(sessionStorage.getItem('cariflip.link') || 'null'); if (kept) [code, name] = kept; }
+  } catch { /* ignoré */ }
+  if (!code) return;
+  const tryOpen = () => {
+    if (!currentProfile() || current() !== 'home') return false;
+    try { sessionStorage.removeItem('cariflip.link'); } catch { /* ignoré */ }
+    const r = importGrid(code, name);
+    if (r.error) openSheet({ title: t('custom.linkBad'), body: r.error, actions: [{ label: t('egg.ok'), primary: true }] });
+    else { lastGo = 0; go('custom'); lastGo = 0; go('game', { custom: r.code }); }
+    return true;
+  };
+  if (!tryOpen()) { const timer = setInterval(() => { if (tryOpen()) clearInterval(timer); }, 400); }
+})();
 startSync();
 
 // Accès de diagnostic (console / tests automatisés), sans effet sur le jeu.
-window.cariflipDebug = { challenge, puzzle, puzzleView, challengeView, rushView, rushPuzzle, rush, syncNow, getFamily, getDevice, showMega, offerUpdate, showBrother, renderStats, season };
+window.cariflipDebug = { ed, customLevel, importGrid, encodeGrid, challenge, puzzle, puzzleView, challengeView, rushView, rushPuzzle, rush, syncNow, getFamily, getDevice, showMega, offerUpdate, showBrother, renderStats, season };

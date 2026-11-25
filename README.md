@@ -2,7 +2,7 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.10.0**
+**Version 1.11.0**
 
 ## Règles
 
@@ -33,7 +33,15 @@ Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en 
 
 **Statistiques** (accueil) : progression Puzzle (résolus, étoiles, indices, avancement par chapitre), Puzzle du jour (jours résolus, série en cours, meilleure série), Contre-la-montre (record, parties), Challenge (parties, meilleur score et note, record de lignes, lignes effacées, plus longue chaîne, méga-combos) et général (traits, tuiles inversées).
 
-**Réglages** (accueil) : langue (Auto / Français / English), apparence (Auto / Clair / Sombre), sons, vibrations, **couleur d'accent** (8 couleurs système ou couleur libre), **logo de l'app** (image au choix, propre à l'appareil, avec retour au logo d'origine) et À propos (version). *Auto* suit l'appareil : français si sa langue commence par « fr », anglais sinon ; thème clair ou sombre selon le système. Les textes sont dans `js/i18n.js` (mêmes clés pour les deux langues).
+**Réglages** (accueil) : langue (Auto / Français / English), apparence (Auto / Clair / Sombre), sons, vibrations, **couleur d'accent** (8 couleurs système ou couleur libre) et À propos (version). *Auto* suit l'appareil : français si sa langue commence par « fr », anglais sinon ; thème clair ou sombre selon le système. Les textes sont dans `js/i18n.js` (mêmes clés pour les deux langues).
+
+## Nouveautés de la 1.11.0
+
+- **Revoir sa solution** : le trait gagnant de chaque grille est enregistré dans le profil (et synchronisé). Sur une grille déjà résolue, le bouton ↺ en haut à droite le rejoue : le trait se dessine, la grille s'inverse, puis revient à son état de départ. Si on résout plusieurs fois la même grille, c'est le trait le plus court qui est gardé. Les grilles résolues avant la 1.11.0 n'ont pas de trait enregistré : il faut les refaire une fois.
+- **Calendrier du Puzzle du jour** : depuis le Puzzle du jour, la pastille du bas ouvre le calendrier ; les flèches passent à la veille ou au lendemain. Toute grille passée est jouable (depuis le 1er janvier 2026). Une grille résolue après sa date est « rattrapée » : elle est marquée d'une horloge et **ne compte pas dans la série**.
+- **Atelier** (accueil) : éditeur de grilles de 3 × 3 à 8 × 8 (noir, blanc, case creuse). Le solveur refuse une grille déjà unie ou qu'aucun trait ne résout, et indique le trait le plus court. Les grilles sont communes à tous les profils de la famille. **Partage** : un code qui contient toute la grille (`js/gridcode.js`, 10 à 24 caractères, avec caractère de contrôle), ou un lien `…/CariFlip/?g=CODE&n=Nom`. Aucun serveur : un code fonctionne hors ligne. Sur iPhone, un lien s'ouvre dans Safari et non dans l'app installée sur l'écran d'accueil : pour celle-ci, saisir le code dans Atelier › Saisir un code.
+- L'option « logo de l'app » des Réglages est retirée.
+- Tous les appareils doivent passer en 1.11.0 : une version plus ancienne ne connaît ni les traits enregistrés ni les grilles de l'Atelier (rien n'est perdu, mais elle ne les affiche pas).
 
 ## Nouveautés de la 1.10.0 (stabilisation)
 
@@ -42,7 +50,7 @@ Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en 
 - **Batterie** : le plateau n'est redessiné que lorsqu'il change ou s'anime (au lieu de 60 fois par seconde en continu) ; le canvas n'est réalloué que si sa taille change.
 - **Mise à jour fiable** : la nouvelle version est téléchargée sur le serveur sans passer par le cache du navigateur (plus de mélange de deux versions dans les minutes qui suivent une publication).
 - Corrections : retour système sur une fenêtre (la ferme sans quitter l'écran), double appui sur une ligne (un seul écran ouvert), « Recommencer » pendant un effacement en Challenge, fenêtre de fin de partie après avoir quitté, grille réactivée sous la fenêtre de fin du contre-la-montre, profils supprimés allégés dans la synchro.
-- Réglages : couleur d'accent, logo de l'app, À propos.
+- Réglages : couleur d'accent, À propos.
 - Code retiré du jeu (ancien générateur du Challenge) déplacé dans `tools/legacy/`.
 
 ## Easter eggs
@@ -97,6 +105,7 @@ js/storage.js           profils, sauvegarde, fusion pour la synchro
 js/sync.js              synchronisation Supabase (code famille)
 js/config.js            adresse et clé publique Supabase
 js/optimal.js           trait optimal (+ optimal-data.js, solve-board.js)
+js/gridcode.js          code de partage des grilles de l'Atelier
 supabase.sql            schéma à exécuter dans Supabase
 js/i18n.js              textes français / anglais
 js/main.js              navigation, réglages

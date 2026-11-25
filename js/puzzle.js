@@ -25,6 +25,7 @@ export class PuzzleMode {
     this.level = typeof n === 'object' ? n : generateLevel(n);
     this.board = cloneBoard(this.level.board);
     this.hints = 0;
+    this.replaying = false;
     const v = this.view;
     v.resetAnims();
     v.cancelDrawing();
@@ -37,7 +38,7 @@ export class PuzzleMode {
   }
 
   hint() {
-    if (this.hints >= MAX_HINTS || !this.level) return this.hints;
+    if (this.hints >= MAX_HINTS || !this.level || this.replaying) return this.hints;
     this.hints++;
     const sol = this.level.solution;
     const len = this.hints === 1 ? 1 : this.hints === 2 ? Math.max(2, Math.ceil(sol.length / 3)) : sol.length;
@@ -65,7 +66,7 @@ export class PuzzleMode {
         sfx.win(); haptic(30);
         this.ui.onDirty(0);
         this.later(() => v.animateClear(rows, 420), 260);
-        this.later(() => this.ui.onWin(this.level.n, this.hints, flips, this.level), this.ui.winDelay ?? 760);
+        this.later(() => this.ui.onWin(this.level.n, this.hints, flips, this.level, path), this.ui.winDelay ?? 760);
         return;
       }
       // Échec : on montre les lignes encore mixtes puis on remet la grille d'origine.
@@ -83,5 +84,47 @@ export class PuzzleMode {
     }, dur + 60);
   }
 
-  leave() { this.clearTimers(); this.view.cancelDrawing(); }
+  // Rejoue un trait enregistré : il se dessine case par case, la grille s'inverse et reste
+  // affichée résolue un instant, puis revient à son état de départ.
+  replay(path, onDone) {
+    if (!this.level || !path || !path.length) return;
+    const v = this.view;
+    this.clearTimers();
+    v.resetAnims(); v.cancelDrawing();
+    v.hintPath = null;
+    v.enabled = false;
+    v.board = this.board;
+    v.path = [];
+    this.replaying = true;
+    const step = Math.max(28, Math.min(90, 2200 / path.length));
+    path.forEach((cell, i) => this.later(() => { v.path = path.slice(0, i + 1); if (i % 2 === 0) sfx.step(i / 2); }, 250 + i * step));
+    const drawn = 250 + path.length * step + 350;
+    this.later(() => {
+      const next = applyPath(this.board, path);
+      v.path = [];
+      v.board = next;
+      const dur = v.animateFlips(path, next, { stagger: Math.min(18, 500 / path.length), dur: 200 });
+      sfx.flip();
+      this.later(() => {
+        const rows = [];
+        for (let y = 0; y < next.h; y++) if (rowState(next, y) === true) rows.push(y);
+        v.flashRows(rows, 'success', 600);
+      }, dur + 40);
+      this.later(() => {
+        v.board = this.board;
+        const d = v.animateFlips([...path].reverse(), this.board, { stagger: 6, dur: 160 });
+        this.later(() => { this.replaying = false; v.enabled = true; onDone?.(); }, d);
+      }, dur + 1500);
+    }, drawn);
+  }
+  stopReplay() {
+    if (!this.replaying) return;
+    this.replaying = false;
+    this.clearTimers();
+    this.view.resetAnims(); this.view.path = [];
+    this.view.board = this.board;
+    this.view.enabled = true;
+  }
+
+  leave() { this.clearTimers(); this.replaying = false; this.view.path = []; this.view.cancelDrawing(); }
 }
