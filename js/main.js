@@ -14,7 +14,7 @@ import { sfx, haptic, hapticsAvailable, silentOverrideAvailable, applyAudioSessi
 import { makeBoard, set, applyPath, isTile, at, dirtyRowCount, cloneBoard } from './board.js';
 import { t, fmtNum, fmtDate, applyStatic, setLangPref, onLangChange, locale } from './i18n.js';
 
-export const VERSION = '1.11.0';
+export const VERSION = '1.11.1';
 const $ = (s) => document.querySelector(s);
 const megaEl = document.querySelector('#mega');
 
@@ -108,7 +108,7 @@ function closeSheet() { sheet.hidden = true; }
 // ---------- Accueil ----------
 function refreshHome() {
   const p = currentProfile();
-  if (p) { setAvatar($('#chip-avatar'), p.avatar); $('#chip-name').textContent = p.name; }
+  if (p) { setAvatar($('#chip-avatar'), p.avatar); $('#chip-name').textContent = t('home.playing', { name: p.name }); }
   const n = solvedCount();
   $('#puzzle-progress').textContent = n ? t('home.progress', { n, total: LEVEL_COUNT }) : t('home.levels', { n: LEVEL_COUNT });
   $('#best-score').textContent = store.best ? t('home.best', { s: fmt(store.best) }) : t('home.challengeSub');
@@ -116,7 +116,7 @@ function refreshHome() {
   $('#daily-sub').textContent = store.daily[dayKey()] ? t('home.dailyDone', { n: streak }) : streak ? t('home.dailyTodo', { n: streak }) : t('home.dailyNew');
   const rushBest = store.ta[0]?.score || 0;
   $('#rush-sub').textContent = rushBest ? t('home.rushBest', { n: rushBest }) : t('home.rushSub');
-  $('#profiles-sub').textContent = t('home.profilesSub', { n: profiles().length });
+  $('#profiles-sub').textContent = t('home.switchProfile');
   const ng = grids().length;
   $('#custom-sub').textContent = ng ? t('home.customSub', { n: ng }) : t('home.customNone');
 }
@@ -132,7 +132,6 @@ $('#go-daily').addEventListener('click', () => go('game', 'daily'));
 $('#go-rush').addEventListener('click', () => go('rush'));
 $('#go-profiles').addEventListener('click', () => go('profiles'));
 $('#go-custom').addEventListener('click', () => go('custom'));
-$('#profile-chip').addEventListener('click', () => go('profiles'));
 $('#go-howto').addEventListener('click', () => go('howto'));
 $('#go-settings').addEventListener('click', () => go('settings'));
 
@@ -329,6 +328,7 @@ const puzzle = new PuzzleMode(puzzleView, {
     const enc = encodePath(path);
     if (level.daily) return dailyWon(level, hints, flips, enc);
     if (level.custom) return customWon(level, hints, flips, enc);
+    if (level.draft) return draftWon(level, flips, path);
     markSolved(n, hints, flips, enc);
     refreshReplay();
     const hasNext = n < LEVEL_COUNT || (n === LEVEL_COUNT && isUnlocked(SECRET_LEVEL));
@@ -369,6 +369,7 @@ let puzzleCtx = 'level';   // 'level' | 'daily' | 'custom'
 function currentResult() {
   if (puzzleCtx === 'daily') return store.daily[dailyKey];
   if (puzzleCtx === 'custom') return store.custom[customCode];
+  if (puzzleCtx === 'draft') return null;
   return store.solved[currentLevel];
 }
 function refreshReplay() { $('#replay-btn').hidden = !currentResult()?.path; }
@@ -728,7 +729,9 @@ $('#ed-check').addEventListener('click', () => {
   const btn = $('#ed-check');
   btn.disabled = true; btn.textContent = t('editor.checking');
   setTimeout(() => {
-    const lvl = customLevel(code, 8000);
+    let lvl = customLevel(code, 8000);
+    // Recherche trop longue, mais la grille vient d'être résolue à la main : ce trait fait foi.
+    if (lvl === undefined && ed.solved && ed.solved.code === code) { rememberSolution(code, ed.solved.path); lvl = customLevel(code); }
     btn.disabled = false; btn.textContent = t('editor.check');
     if (current() !== 'editor') return;
     if (lvl === undefined) return fail(t('editor.tooHard'));
@@ -747,6 +750,36 @@ $('#ed-check').addEventListener('click', () => {
     });
   }, 40);
 });
+// Tester la grille soi-même, avant ou à la place de la vérification automatique.
+const edFail = (msg) => openSheet({ title: t('editor.invalid'), body: msg, actions: [{ label: t('egg.ok'), primary: true }] });
+$('#ed-test').addEventListener('click', () => {
+  const rows = ed.cells.map((r) => r.join(''));
+  if (rows.join('').replace(/X/g, '').length < 2) return edFail(t('editor.empty'));
+  if (dirtyRowCount(boardFromRows(rows)) === 0) return edFail(t('editor.alreadySolved'));
+  go('game', { draft: true });
+});
+function openDraft() {
+  puzzleCtx = 'draft';
+  const rows = ed.cells.map((r) => r.join(''));
+  $('#game-title').textContent = t('editor.testTitle');
+  $('#game-back').textContent = t('editor.back');
+  setBar({ size: `${ed.w} × ${ed.h}` });
+  puzzle.load({ n: 'draft', draft: true, code: encodeGrid(rows), board: boardFromRows(rows), solution: [] });
+  refreshHint(); refreshReplay();
+}
+function draftWon(level, flips, path) {
+  ed.solved = { code: level.code, path };
+  openSheet({
+    badge: '<svg style="color:var(--success)"><use href="#i-check"/></svg>',
+    title: t('custom.winTitle'), body: t('editor.testWon', { n: flips }),
+    actions: [
+      { label: t('editor.saveGrid'), primary: true, run: () => { history.back(); setTimeout(() => $('#ed-check').click(), 350); } },
+      { label: t('game.replay'), run: () => openDraft() },
+      { label: t('editor.backTo'), run: () => history.back() },
+    ],
+    locked: true,
+  });
+}
 hooks.editor = { enter: setupEditor };
 
 let currentLevel = 1;
@@ -767,7 +800,8 @@ function loadLevel(n) {
   refreshHint(); refreshReplay();
 }
 function refreshHint() {
-  const left = MAX_HINTS - puzzle.hints;
+  // Grille en cours de test (éditeur) : pas d'indice, c'est au créateur de la résoudre.
+  const left = puzzleCtx === 'draft' ? 0 : MAX_HINTS - puzzle.hints;
   $('#hint-badge').textContent = left;
   $('#hint-badge').hidden = left <= 0;
   $('#hint-btn').disabled = left <= 0;
@@ -780,9 +814,11 @@ hooks.game = {
     if (n === 'daily') openDaily(dayKey());
     else if (n && n.daily) openDaily(n.daily);
     else if (n && n.custom) openCustom(n.custom);
+    else if (n && n.draft) openDraft();
     else if (n) loadLevel(n);
     else if (puzzleCtx === 'daily') openDaily();
     else if (puzzleCtx === 'custom') openCustom();
+    else if (puzzleCtx === 'draft') openDraft();
     else loadLevel(currentLevel);
     puzzleView.start();
   },
@@ -1458,7 +1494,8 @@ onLangChange(() => {
   if (id === 'game') {
     if (puzzleCtx === 'level') $('#game-title').textContent = t('game.level', { n: currentLevel });
     else if (puzzleCtx === 'daily') $('#game-title').textContent = dailyKey === dayKey() ? t('daily.title') : t('daily.titleOn', { d: shortDate(dailyKey) });
-    $('#game-back').textContent = t(puzzleCtx === 'daily' ? 'nav.home' : puzzleCtx === 'custom' ? 'custom.title' : 'nav.levels');
+    else if (puzzleCtx === 'draft') $('#game-title').textContent = t('editor.testTitle');
+    $('#game-back').textContent = t(puzzleCtx === 'daily' ? 'nav.home' : puzzleCtx === 'custom' ? 'custom.title' : puzzleCtx === 'draft' ? 'editor.back' : 'nav.levels');
     if (puzzleView.board) puzzle.ui.onDirty(dirtyRowCount(puzzleView.board));
     statusEl.textContent = t('game.intro'); statusEl.className = '';
   } else if (id === 'calendar') renderCalendar();

@@ -57,9 +57,8 @@
   <!-- Accueil -->
   <section class="screen" id="home">
     <div class="scroll">
-      <button class="profile-chip" id="profile-chip"><span class="avatar" id="chip-avatar"></span><span class="chip-name" id="chip-name"></span><svg class="chev"><use href="#i-chev"/></svg></button>
       <header class="hero">
-        <img class="logo" id="logo" data-logo src="icons/icon.svg" alt="" width="88" height="88" draggable="false">
+        <img class="logo" id="logo" data-logo src="icons/icon.svg" alt="" width="72" height="72" draggable="false">
         <h1>CariFlip</h1>
         <p class="tagline" data-i18n="home.tagline"></p>
       </header>
@@ -90,29 +89,21 @@
           <span class="row-text"><span class="row-title" data-i18n="home.custom"></span><span class="row-sub" id="custom-sub"></span></span>
           <svg class="chev"><use href="#i-chev"/></svg>
         </button>
-        <button class="row" id="go-howto">
-          <span class="row-icon" style="--c: var(--success)"><svg><use href="#i-help"/></svg></span>
-          <span class="row-text"><span class="row-title" data-i18n="home.howto"></span></span>
+      </div>
+
+      <!-- Profil actif et changement de profil : une seule ligne -->
+      <div class="group">
+        <button class="row" id="go-profiles">
+          <span class="avatar" id="chip-avatar"></span>
+          <span class="row-text"><span class="row-title" id="chip-name"></span><span class="row-sub" id="profiles-sub"></span></span>
           <svg class="chev"><use href="#i-chev"/></svg>
         </button>
       </div>
 
-      <div class="group">
-        <button class="row" id="go-profiles">
-          <span class="row-icon" style="--c: #FF9F0A"><svg><use href="#i-people"/></svg></span>
-          <span class="row-text"><span class="row-title" data-i18n="home.profiles"></span><span class="row-sub" id="profiles-sub"></span></span>
-          <svg class="chev"><use href="#i-chev"/></svg>
-        </button>
-        <button class="row" id="go-stats">
-          <span class="row-icon" style="--c: #5856D6"><svg><use href="#i-chart"/></svg></span>
-          <span class="row-text"><span class="row-title" data-i18n="home.stats"></span></span>
-          <svg class="chev"><use href="#i-chev"/></svg>
-        </button>
-        <button class="row" id="go-settings">
-          <span class="row-icon" style="--c: var(--gray)"><svg><use href="#i-gear"/></svg></span>
-          <span class="row-text"><span class="row-title" data-i18n="home.settings"></span></span>
-          <svg class="chev"><use href="#i-chev"/></svg>
-        </button>
+      <div class="tiles">
+        <button class="tile" id="go-howto"><span class="row-icon" style="--c: var(--success)"><svg><use href="#i-help"/></svg></span><span data-i18n="home.howtoShort"></span></button>
+        <button class="tile" id="go-stats"><span class="row-icon" style="--c: #5856D6"><svg><use href="#i-chart"/></svg></span><span data-i18n="home.statsShort"></span></button>
+        <button class="tile" id="go-settings"><span class="row-icon" style="--c: var(--gray)"><svg><use href="#i-gear"/></svg></span><span data-i18n="home.settings"></span></button>
       </div>
 
       <p class="footnote" id="install-hint" hidden></p>
@@ -291,7 +282,7 @@
       </div>
       <p class="editor-hint" data-i18n="editor.hint"></p>
     </div>
-    <div class="screen-footer"><button class="btn primary" id="ed-check" data-i18n="editor.check"></button></div>
+    <div class="screen-footer two"><button class="btn" id="ed-test" data-i18n="editor.test"></button><button class="btn primary" id="ed-check" data-i18n="editor.check"></button></div>
   </section>
 
   <!-- Réglages -->

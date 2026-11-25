@@ -71,10 +71,9 @@ html, body { overflow: hidden; }
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
-  animation: screen-in 0.22s ease-out;
 }
-/* Transition d'écran : fondu seul, sans glissement latéral. */
-@keyframes screen-in { from { opacity: 0; } to { opacity: 1; } }
+/* Pas de fondu entre écrans : partir d'un écran transparent faisait apparaître le fond (flash noir
+   en thème sombre), surtout au retour. Le changement d'écran est immédiat. */
 .scroll {
   flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable both-edges; /* même largeur avec ou sans barre de défilement */
@@ -512,3 +511,46 @@ html, body, #app, .screen { overflow-x: clip; }
 .tool-dot.light { background: var(--tile-light); }
 .tool-dot.hole { background: var(--well); box-shadow: none; outline: 1.5px dashed var(--dot); outline-offset: -1.5px; }
 .editor-hint { margin: 8px auto 0; height: 18px; font-size: 13px; line-height: 18px; color: var(--secondary); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- v1.11.1 : accueil qui tient sur un écran, sans défilement ---------- */
+#home .scroll { display: flex; flex-direction: column; padding-block: 4px 10px; }
+#home .scroll > * { width: 100%; flex: none; }
+#home .hero { padding-block: 6px 14px; gap: 2px; }
+#home .logo { width: 72px; height: 72px; border-radius: 17px; }
+#home .hero h1 { font-size: 34px; margin-top: 8px; }
+#home .tagline { font-size: 15px; }
+#home .group { margin-bottom: 12px; }
+#home .row { min-height: 52px; padding-block: 7px; }
+#home .row-sub { font-size: 13px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#home .row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#home #go-profiles .avatar { width: 32px; height: 32px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 8px; }
+.tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0;
+  background: var(--card); border-radius: 12px; padding: 9px 4px 8px; font-size: 13px; font-weight: 600;
+}
+.tile > span:last-child { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .row-icon { width: 30px; height: 30px; font-size: 17px; }
+.tile:active { background: var(--fill); }
+#home .footnote { margin: 4px auto 0; }
+#home .version-line { margin-top: auto; padding-top: 4px; }
+/* Écrans moins hauts : on resserre encore, par paliers. */
+@media (max-height: 760px) {
+  #home .hero { flex-direction: row; justify-content: center; align-items: center; gap: 12px; padding-block: 4px 10px; }
+  #home .logo { width: 52px; height: 52px; border-radius: 12px; }
+  #home .hero h1 { font-size: 30px; margin: 0; }
+  #home .tagline { display: none; }
+  #home .row { min-height: 48px; padding-block: 5px; }
+  #home .group { margin-bottom: 10px; }
+}
+@media (max-height: 620px) {
+  #home .row { min-height: 42px; padding-block: 3px; }
+  #home .row-icon { width: 28px; height: 28px; font-size: 16px; }
+  #home .logo { width: 40px; height: 40px; border-radius: 10px; }
+  #home .hero h1 { font-size: 26px; }
+  .tile { flex-direction: row; gap: 5px; padding: 7px 2px; font-size: 12.5px; }
+  .tile .row-icon { width: 22px; height: 22px; font-size: 13px; border-radius: 6px; }
+  #home .group, .tiles { margin-bottom: 8px; }
+}
+.screen-footer.two { gap: 10px; }
+.screen-footer.two .btn { flex: 1; min-width: 0; max-width: 240px; padding-inline: 8px; }

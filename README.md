@@ -2,7 +2,7 @@
 
 Jeu de réflexion de Caribou Labs, inspiré des puzzles à trait unique. PWA installable sur iPhone, iPad et Android, jouable hors ligne. Aucune dépendance, aucune étape de build.
 
-**Version 1.11.0**
+**Version 1.11.1**
 
 ## Règles
 
@@ -34,6 +34,13 @@ Le bouton ✕ (de chaque côté, pour droitiers et gauchers) annule un trait en 
 **Statistiques** (accueil) : progression Puzzle (résolus, étoiles, indices, avancement par chapitre), Puzzle du jour (jours résolus, série en cours, meilleure série), Contre-la-montre (record, parties), Challenge (parties, meilleur score et note, record de lignes, lignes effacées, plus longue chaîne, méga-combos) et général (traits, tuiles inversées).
 
 **Réglages** (accueil) : langue (Auto / Français / English), apparence (Auto / Clair / Sombre), sons, vibrations, **couleur d'accent** (8 couleurs système ou couleur libre) et À propos (version). *Auto* suit l'appareil : français si sa langue commence par « fr », anglais sinon ; thème clair ou sombre selon le système. Les textes sont dans `js/i18n.js` (mêmes clés pour les deux langues).
+
+## Nouveautés de la 1.11.1
+
+- **Atelier : bouton « Tester »** dans l'éditeur : on joue sa grille soi-même, sans indice, avant (ou à la place de) la vérification automatique. Une fois résolue à la main, « Enregistrer la grille » enchaîne sur la vérification et le nom ; si la recherche automatique est trop longue, le trait trouvé à la main fait foi.
+- **Plus de flash au changement d'écran** : le fondu d'entrée des écrans (qui laissait voir le fond noir, surtout au retour) est supprimé.
+- **Accueil sur un seul écran**, sans défilement : logo et lignes resserrés, Règles / Stats / Réglages en trois tuiles, mise en page qui se compacte par paliers sur les écrans moins hauts.
+- **Profil actif sur la ligne des profils** : « Caribou joue · Changer de profil » remplace la pastille en haut à droite et l'ancienne ligne Profils.
 
 ## Nouveautés de la 1.11.0
 
